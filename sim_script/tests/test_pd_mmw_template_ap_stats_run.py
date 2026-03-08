@@ -1,9 +1,9 @@
-﻿import pathlib
+import pathlib
 import subprocess
 import sys
 
 
-def test_script_runs_and_prints_ap_table_header():
+def test_script_runs_and_prints_office_table_header():
     script = pathlib.Path("sim_script/pd_mmw_template_ap_stats.py")
     proc = subprocess.run(
         [
@@ -11,8 +11,6 @@ def test_script_runs_and_prints_ap_table_header():
             str(script),
             "--cell-size",
             "2",
-            "--sta-density",
-            "0.005",
             "--seed",
             "123",
             "--mmw-nit",
@@ -25,4 +23,5 @@ def test_script_runs_and_prints_ap_table_header():
         check=False,
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "ap_id,wifi_user_count,ble_user_count,wifi_slots_used,ble_slots_used" in proc.stdout
+    assert "pair_density_per_m2 = 0.5" in proc.stdout
+    assert "office_id,wifi_pair_count,ble_pair_count,wifi_slots_used,ble_slots_used" in proc.stdout

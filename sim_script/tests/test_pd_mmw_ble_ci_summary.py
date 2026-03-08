@@ -11,8 +11,6 @@ def test_script_prints_ble_ci_discrete_summary():
             str(script),
             "--cell-size",
             "2",
-            "--sta-density",
-            "0.005",
             "--seed",
             "3",
             "--mmw-nit",
