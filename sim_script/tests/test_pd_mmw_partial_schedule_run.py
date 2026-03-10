@@ -1,25 +1,29 @@
-﻿import pathlib
+import pathlib
 import subprocess
 import sys
 
 
-def test_script_prints_ble_ci_discrete_summary():
+def test_script_reports_partial_schedule_when_max_slot_cap_is_hit():
     script = pathlib.Path("sim_script/pd_mmw_template_ap_stats.py")
     proc = subprocess.run(
         [
             sys.executable,
             str(script),
             "--cell-size",
+            "1",
+            "--pair-density",
+            "0.2",
+            "--max-slots",
             "2",
-            "--seed",
-            "3",
             "--mmw-nit",
-            "20",
+            "3",
+            "--seed",
+            "9",
         ],
         capture_output=True,
         text=True,
         check=False,
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "ble_ci_quanta_candidates" in proc.stdout
-    assert "[8, 16, 32, 64, 128, 256, 512, 1024, 2048]" in proc.stdout
+    assert "partial_schedule = True" in proc.stdout
+    assert "unscheduled_pair_ids =" in proc.stdout

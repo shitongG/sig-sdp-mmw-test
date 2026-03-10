@@ -1,0 +1,60 @@
+import numpy as np
+import scipy.sparse
+
+from sim_script.pd_mmw_template_ap_stats import assign_macrocycle_start_slots
+
+
+class _BudgetEnv:
+    n_pair = 2
+    pair_priority = np.array([2.0, 1.0], dtype=float)
+    RADIO_BLE = 1
+    pair_radio_type = np.array([0, 0], dtype=int)
+    pair_ble_ce_feasible = np.array([True, True], dtype=bool)
+
+    def compute_macrocycle_slots(self):
+        return 4
+
+    def get_pair_period_slots(self):
+        return np.array([4, 4], dtype=int)
+
+    def get_pair_width_slots(self):
+        return np.array([2, 2], dtype=int)
+
+    def expand_pair_occupancy(self, pair_id, start_slot, macrocycle_slots):
+        occ = np.zeros(macrocycle_slots, dtype=bool)
+        occ[0:2] = True
+        return occ
+
+    def build_pair_conflict_matrix(self):
+        return np.array([[False, False], [False, False]], dtype=bool)
+
+    def get_macrocycle_conflict_state(self):
+        s_gain = scipy.sparse.csr_matrix(np.array([[5.0, 4.0], [4.0, 5.0]], dtype=float))
+        q_conflict = scipy.sparse.csr_matrix((2, 2))
+        h_max = np.array([3.0, 3.0], dtype=float)
+        return s_gain, q_conflict, h_max
+
+
+class _BudgetSafeEnv(_BudgetEnv):
+    def get_macrocycle_conflict_state(self):
+        s_gain = scipy.sparse.csr_matrix(np.array([[0.4, 0.2], [0.2, 0.4]], dtype=float))
+        q_conflict = scipy.sparse.csr_matrix((2, 2))
+        h_max = np.array([1.0, 1.0], dtype=float)
+        return s_gain, q_conflict, h_max
+
+
+def test_macrocycle_scheduler_blocks_overlap_when_h_budget_is_exceeded():
+    env = _BudgetEnv()
+    starts, macro, occ, unscheduled = assign_macrocycle_start_slots(env, np.array([0, 0]), allow_partial=True)
+    assert starts[0] >= 0
+    assert starts[1] == -1
+    assert unscheduled == [1]
+    assert not np.any(np.logical_and(occ[0], occ[1]))
+
+
+def test_macrocycle_scheduler_allows_overlap_when_h_budget_is_safe():
+    env = _BudgetSafeEnv()
+    starts, macro, occ, unscheduled = assign_macrocycle_start_slots(env, np.array([0, 0]), allow_partial=False)
+    assert unscheduled == []
+    assert starts.tolist() == [0, 0]
+    assert np.any(np.logical_and(occ[0], occ[1]))

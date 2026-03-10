@@ -2,18 +2,89 @@ import math
 
 import numpy as np
 import scipy
+try:
+    import torch
+except ImportError:
+    torch = None
 
 from sim_src.alg.sdp_solver import sdp_solver
 from sim_src.linalg_util import generate_rand_regular_simplex_with_Z_vertices
 from sim_src.scipy_util import csr_scal_rows_inplace
-from sim_src.util import STATS_OBJECT, profile
+from sim_src.util import STATS_OBJECT, profile, resolve_torch_device
+
+
+def _sparse_index_result_to_1d_array(x):
+    if hasattr(x, "toarray"):
+        return np.asarray(x.toarray()).ravel()
+    return np.asarray(x).ravel()
 
 
 class mmw(STATS_OBJECT,sdp_solver):
-    def __init__(self, nit=100, rank_radio=2, alpha=1., eta=0.1, log_gap=False):
+    def __init__(self, nit=100, rank_radio=2, alpha=1., eta=0.1, log_gap=False, device=None):
         sdp_solver.__init__(self, nit=nit, rank_radio=rank_radio, alpha=alpha)
         self.eta = eta
         self.LOG_GAP = log_gap
+        if device is None:
+            self.device = resolve_torch_device(use_gpu=False, gpu_id=0) if torch is not None else "cpu"
+        elif torch is not None and not isinstance(device, torch.device):
+            self.device = torch.device(device)
+        else:
+            self.device = device
+
+    def _to_torch(self, arr, device=None, dtype=None):
+        if torch is None:
+            raise RuntimeError("torch is required for mmw torch helpers.")
+        if dtype is None:
+            dtype = torch.float64
+        target = self.device if device is None else device
+        if not isinstance(target, torch.device):
+            target = torch.device(target)
+        if isinstance(arr, np.ndarray):
+            tensor = torch.from_numpy(arr)
+        else:
+            tensor = torch.as_tensor(arr)
+        return tensor.to(device=target, dtype=dtype)
+
+    def _to_numpy(self, arr):
+        if torch is not None and isinstance(arr, torch.Tensor):
+            return arr.detach().cpu().numpy()
+        return np.asarray(arr)
+
+    def _softmax_device(self, arr):
+        if torch is None:
+            return scipy.special.softmax(arr)
+        logits = self._to_torch(arr, dtype=torch.float64)
+        return self._to_numpy(torch.softmax(logits, dim=0))
+
+    def _build_dense_x_blocks(
+        self,
+        x_half,
+        nz_idx_gain_x_ut,
+        nz_idx_gain_y_ut,
+        nz_idx_asso_x_ut,
+        nz_idx_asso_y_ut,
+    ):
+        if torch is None:
+            x_half_np = np.asarray(x_half)
+            x_mdiag_data = np.sum(x_half_np * x_half_np, axis=1)
+            x_offdi_s = np.sum(x_half_np[nz_idx_gain_x_ut] * x_half_np[nz_idx_gain_y_ut], axis=1)
+            x_offdi_q = np.sum(x_half_np[nz_idx_asso_x_ut] * x_half_np[nz_idx_asso_y_ut], axis=1)
+            return x_mdiag_data, x_offdi_s, x_offdi_q
+
+        x_half_t = self._to_torch(x_half, dtype=torch.float64)
+        gain_x_t = torch.as_tensor(nz_idx_gain_x_ut, device=x_half_t.device, dtype=torch.long)
+        gain_y_t = torch.as_tensor(nz_idx_gain_y_ut, device=x_half_t.device, dtype=torch.long)
+        asso_x_t = torch.as_tensor(nz_idx_asso_x_ut, device=x_half_t.device, dtype=torch.long)
+        asso_y_t = torch.as_tensor(nz_idx_asso_y_ut, device=x_half_t.device, dtype=torch.long)
+
+        x_mdiag_data = torch.sum(x_half_t * x_half_t, dim=1)
+        x_offdi_s = torch.sum(x_half_t[gain_x_t] * x_half_t[gain_y_t], dim=1)
+        x_offdi_q = torch.sum(x_half_t[asso_x_t] * x_half_t[asso_y_t], dim=1)
+        return (
+            self._to_numpy(x_mdiag_data),
+            self._to_numpy(x_offdi_s),
+            self._to_numpy(x_offdi_q),
+        )
 
     def run_with_state(self, bs_iteration, Z, state):
         tic = self._get_tic()
@@ -25,9 +96,10 @@ class mmw(STATS_OBJECT,sdp_solver):
 
     def _process_state(self, Z, S_gain, Q_asso, h_max):
         K = S_gain.shape[0]
-        S_gain_T_no_asso_no_diag = S_gain.copy().transpose()
+        S_gain_T_no_asso_no_diag = S_gain.copy().transpose().tolil()
         nz_idx_asso_x, nz_idx_asso_y = Q_asso.nonzero()
         S_gain_T_no_asso_no_diag[nz_idx_asso_x, nz_idx_asso_y] = 0
+        S_gain_T_no_asso_no_diag = S_gain_T_no_asso_no_diag.tocsr()
         S_gain_T_no_asso_no_diag.setdiag(0)
         S_gain_T_no_asso_no_diag.eliminate_zeros()
         S_gain_T_no_asso_no_diag.sort_indices()
@@ -85,7 +157,7 @@ class mmw(STATS_OBJECT,sdp_solver):
                 ## AD, X -> eD
                 eD = (X_avgd_this_mdiag-1.)/(1.-1./K)
                 ## AF, X -> eF
-                XXX = np.asarray(X_avgd_this_offdi[nz_idx_asso_x_ut,nz_idx_asso_y_ut]).ravel()
+                XXX = _sparse_index_result_to_1d_array(X_avgd_this_offdi[nz_idx_asso_x_ut, nz_idx_asso_y_ut])
                 eF = (XXX+1./(Z-1))/(1./(K*(Z-1))+1./2.)
                 ## AH, X -> eH
                 AHX = S_gain_T_no_asso_no_diag*X_avgd_this_offdi
@@ -127,7 +199,7 @@ class mmw(STATS_OBJECT,sdp_solver):
                 eD = (X_mdiag.data-1.)/(1.-1./K)
 
                 ## AF, X -> eF
-                XXX = np.asarray(X_offdi[nz_idx_asso_x_ut,nz_idx_asso_y_ut]).ravel()
+                XXX = _sparse_index_result_to_1d_array(X_offdi[nz_idx_asso_x_ut, nz_idx_asso_y_ut])
                 eF = (XXX+1./(Z-1))/(1./(K*(Z-1))+1./2.)
                 ## AH, X -> eH
                 AHX = S_gain_T_no_asso_no_diag*X_offdi
@@ -136,7 +208,7 @@ class mmw(STATS_OBJECT,sdp_solver):
                 e_this = np.hstack((eD,eF,eH))
                 e_accu += e_this*self.eta
 
-                Y = scipy.special.softmax(e_accu)
+                Y = self._softmax_device(e_accu)
 
                 tim = self._get_tim(tic_dual)
                 self._add_np_log("mmw_dual",i,np.array([Z,K,tim]))
@@ -177,16 +249,22 @@ class mmw(STATS_OBJECT,sdp_solver):
 
                 L_half = L_accu.copy()
                 L_half.data = L_half.data/2.
-                X_half = mmw.expm_half_randsk(L_half.copy(),Z*self.rank_radio)
+                X_half = mmw.expm_half_randsk(L_half.copy(), Z * self.rank_radio, device=self.device)
                 # X_half = X_half/np.linalg.norm(X_half, axis=1, keepdims=True)
-                X_mdiag_data = np.sum(X_half * X_half, axis=1)
+                X_mdiag_data, X_offdi_data_s, X_offdi_data_q = self._build_dense_x_blocks(
+                    X_half,
+                    nz_idx_gain_x_ut,
+                    nz_idx_gain_y_ut,
+                    nz_idx_asso_x_ut,
+                    nz_idx_asso_y_ut,
+                )
                 X_trace = np.sum(X_mdiag_data)/K
                 X_mdiag_data = X_mdiag_data/X_trace
                 X_mdiag = scipy.sparse.diags(X_mdiag_data).tocsr()
                 X_mdiag.sort_indices()
-                X_offdi_data = np.sum(X_half[nz_idx_gain_x_ut] * X_half[nz_idx_gain_y_ut], axis=1)/X_trace
+                X_offdi_data = X_offdi_data_s / X_trace
                 X_offdi_S = scipy.sparse.coo_matrix((X_offdi_data, (nz_idx_gain_x_ut,nz_idx_gain_y_ut)), shape=(K, K)).tocsr()
-                X_offdi_data = np.sum(X_half[nz_idx_asso_x_ut] * X_half[nz_idx_asso_y_ut], axis=1)/X_trace
+                X_offdi_data = X_offdi_data_q / X_trace
                 X_offdi_Q = scipy.sparse.coo_matrix((X_offdi_data, (nz_idx_asso_x_ut,nz_idx_asso_y_ut)), shape=(K, K)).tocsr()
                 X_offdi = X_offdi_S + X_offdi_Q
                 X_offdi = X_offdi + X_offdi.transpose()
@@ -222,9 +300,15 @@ class mmw(STATS_OBJECT,sdp_solver):
         return True, X_half
 
     @staticmethod
-    def expm_half_randsk(L,D):
-        randv = np.random.randn(L.shape[0],D)/math.sqrt(float(D))
-        randv = randv/np.linalg.norm(randv,axis=1)[:,None]
+    def expm_half_randsk(L,D,device=None):
+        if torch is not None and device is not None:
+            target = device if isinstance(device, torch.device) else torch.device(device)
+            randv_t = torch.randn((L.shape[0], D), device=target, dtype=torch.float64) / math.sqrt(float(D))
+            randv_t = randv_t / torch.linalg.norm(randv_t, dim=1, keepdim=True)
+            randv = randv_t.detach().cpu().numpy()
+        else:
+            randv = np.random.randn(L.shape[0],D)/math.sqrt(float(D))
+            randv = randv/np.linalg.norm(randv,axis=1)[:,None]
         ret = scipy.sparse.linalg.expm_multiply(L.copy(),randv)
         return ret
 

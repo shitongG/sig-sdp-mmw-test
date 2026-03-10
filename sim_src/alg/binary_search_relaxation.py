@@ -12,6 +12,8 @@ class binary_search_relaxation(alg_interface,STATS_OBJECT):
         self.force_full_bound = False
         self.user_priority = None  # [PRIO-BS] 新增优先级透传字段：会传给 solver.rounding(...)。
         self.slot_mask_builder = None  # [BLE-TIMING] 可选函数：输入 Z/state，输出 (K,Z) 时隙可用掩码。
+        self.max_slot_cap = None
+        self.last_partial_schedule = None
     def set_bounds(self,state):
         if self.force_lower_bound:
             nnz_per_row = np.diff(state[1].indptr)
@@ -28,11 +30,17 @@ class binary_search_relaxation(alg_interface,STATS_OBJECT):
         ub = np.max(nnz_per_row)+1
         nnz_per_row = np.diff(state[1].indptr)
         lb = np.max(nnz_per_row)+1
-        return  lb, ub
+        lb = max(int(lb), 2)
+        ub = max(int(ub), 2)
+        return lb, ub
 
     def run(self,state):
         bd_tic = self._get_tic()
         left, right = self.set_bounds(state)
+        if self.max_slot_cap is not None:
+            cap = int(self.max_slot_cap)
+            left = min(left, cap)
+            right = min(right, cap)
         tim = self._get_tim(bd_tic)
         self._add_np_log("bs_set_bounds",0,np.array([left,right,tim]))
 
@@ -41,7 +49,21 @@ class binary_search_relaxation(alg_interface,STATS_OBJECT):
         tim = self._get_tim(bs_tic)
         self._add_np_log("bs_search",0,np.array([left,right,Z,rem,it,tim]))
 
+        self.last_partial_schedule = self._build_partial_schedule(z_vec, Z, rem)
         return z_vec, Z, rem
+
+    def _build_partial_schedule(self, z_vec, Z, rem):
+        z_vec = np.asarray(z_vec, dtype=int).ravel()
+        K = int(z_vec.shape[0])
+        rem = int(rem)
+        scheduled_count = max(0, K - rem)
+        scheduled_pair_ids = np.arange(scheduled_count, dtype=int).tolist()
+        unscheduled_pair_ids = np.arange(scheduled_count, K, dtype=int).tolist()
+        return {
+            "slot_cap_hit": bool(self.max_slot_cap is not None and int(Z) >= int(self.max_slot_cap) and rem > 0),
+            "scheduled_pair_ids": scheduled_pair_ids,
+            "unscheduled_pair_ids": unscheduled_pair_ids,
+        }
 
     def search(self, left, right, state):
         it = 0
@@ -67,8 +89,11 @@ class binary_search_relaxation(alg_interface,STATS_OBJECT):
             elif left >= right and rem == 0:
                 to_break = True
             elif left >= right and rem > 0:
-                left+=1
-                right+=1
+                if self.max_slot_cap is not None and int(right) >= int(self.max_slot_cap):
+                    to_break = True
+                else:
+                    left+=1
+                    right+=1
 
             self._printalltime(left,right,mid,Z,rem,"++++++++++++++++++++")
             if to_break:

@@ -1,5 +1,6 @@
 import math
 import os
+import warnings
 from datetime import datetime
 import pprint
 from time import time
@@ -8,7 +9,30 @@ import matplotlib.pyplot as plt
 
 
 import numpy as np
-import torch
+try:
+    import torch
+except ImportError:
+    torch = None
+
+
+def _require_torch():
+    if torch is None:
+        raise RuntimeError("torch is required for this utility function.")
+
+
+def resolve_torch_device(use_gpu: bool, gpu_id: int):
+    if torch is None:
+        return "cpu"
+    if not use_gpu:
+        return torch.device("cpu")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        cuda_available = torch.cuda.is_available()
+    if not cuda_available:
+        raise RuntimeError("GPU requested but CUDA is unavailable.")
+    return torch.device(f"cuda:{int(gpu_id)}")
+
+
 def p_true(probability_of_true):
     return np.random.choice([True, False], p=[probability_of_true, 1 - probability_of_true])
 
@@ -18,24 +42,29 @@ def DbToRatio(a):
 def RatioToDb(a):
     return 10.0 * math.log10(a)
 
-USE_CUDA = torch.cuda.is_available()
-FLOAT = torch.cuda.FloatTensor if USE_CUDA else torch.FloatTensor
-LONG_TYPE = torch.cuda.LongTensor if USE_CUDA else torch.LongTensor
+USE_CUDA = False
+FLOAT = torch.FloatTensor if torch is not None else None
+LONG_TYPE = torch.LongTensor if torch is not None else None
 
 def to_numpy(var):
+    _require_torch()
     return var.cpu().data.numpy() if USE_CUDA else var.data.numpy()
 
-def to_tensor(ndarray, requires_grad=False, dtype=FLOAT):
+def to_tensor(ndarray, requires_grad=False, dtype=FLOAT, device=None):
+    _require_torch()
     t = torch.from_numpy(ndarray)
     t.requires_grad_(requires_grad)
-    if USE_CUDA:
-        return t.type(dtype).to(torch.cuda.current_device())
-    else:
-        return t.type(dtype)
-def to_device(var):
-    if USE_CUDA:
-        return var.to(torch.cuda.current_device())
-    return var
+    target = device
+    if target is None:
+        target = torch.device("cpu")
+    return t.type(dtype).to(target)
+
+
+def to_device(var, device=None):
+    _require_torch()
+    if device is None:
+        return var
+    return var.to(device)
 
 def cat_str_dot_txt(sl):
     ret = ""
@@ -291,6 +320,3 @@ def plot_a_array(arr, mavg_n = 20, name= "", script_file = None, postfix = "", i
         except:
             pass
         fig.savefig(os.path.join(save_path,"saved_figures",FIG_NAME))
-
-
-

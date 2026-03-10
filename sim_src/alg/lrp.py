@@ -24,9 +24,10 @@ class lrp_solver(STATS_OBJECT):
 
     def _setup_problem(self, Z, S_gain, Q_asso, h_max):
         K = S_gain.shape[0]
-        S_gain_T_no_asso_no_diag = S_gain.copy().transpose()
+        S_gain_T_no_asso_no_diag = S_gain.copy().transpose().tolil()
         nz_idx_asso_x, nz_idx_asso_y = Q_asso.nonzero()
         S_gain_T_no_asso_no_diag[nz_idx_asso_x, nz_idx_asso_y] = 0
+        S_gain_T_no_asso_no_diag = S_gain_T_no_asso_no_diag.tocsr()
         S_gain_T_no_asso_no_diag.setdiag(0)
         S_gain_T_no_asso_no_diag.eliminate_zeros()
         S_gain_T_no_asso_no_diag.sort_indices()

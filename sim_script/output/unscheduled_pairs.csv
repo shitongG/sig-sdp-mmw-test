@@ -1,0 +1,7 @@
+pair_id,office_id,radio,channel,priority,schedule_slot,schedule_time_ms,start_time_slot,wifi_anchor_slot,wifi_period_slots,wifi_period_ms,wifi_tx_slots,wifi_tx_ms,ble_anchor_slot,ble_ci_slots,ble_ci_ms,ble_ce_slots,ble_ce_ms,ble_ce_feasible,macrocycle_slots,occupied_slots_in_macrocycle
+0,0,wifi,2,1.000,-1,-1.250,0,19,32,40.000,8,10.000,NA,NA,NA,NA,NA,NA,64,[]
+7,0,wifi,1,1.000,-1,-1.250,0,2,16,20.000,4,5.000,NA,NA,NA,NA,NA,NA,64,[]
+11,0,wifi,6,2.000,-1,-1.250,0,2,16,20.000,7,8.750,NA,NA,NA,NA,NA,NA,64,[]
+13,0,wifi,10,2.000,-1,-1.250,0,10,16,20.000,4,5.000,NA,NA,NA,NA,NA,NA,64,[]
+19,0,wifi,4,1.000,-1,-1.250,0,1,16,20.000,8,10.000,NA,NA,NA,NA,NA,NA,64,[]
+22,0,wifi,4,2.000,-1,-1.250,0,8,16,20.000,7,8.750,NA,NA,NA,NA,NA,NA,64,[]
