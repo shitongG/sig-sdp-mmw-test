@@ -38,6 +38,8 @@ def test_build_pair_parameter_rows_contains_wifi_and_ble_fields():
         pair_radio_type=np.array([0, 1]),
         pair_channel=np.array([6, 12]),
         pair_priority=np.array([3.0, 1.0]),
+        ble_channel_mode="per_ce",
+        pair_ble_ce_channels={1: np.array([3, 7], dtype=int)},
         pair_start_time_slot=np.array([0, 0]),
         pair_wifi_anchor_slot=np.array([4, 0]),
         pair_wifi_period_slots=np.array([16, 0]),
@@ -69,6 +71,8 @@ def test_build_pair_parameter_rows_contains_wifi_and_ble_fields():
     assert rows[0]["wifi_period_ms"] == 20.0
     assert rows[0]["wifi_tx_slots"] == 5
     assert rows[0]["wifi_tx_ms"] == 6.25
+    assert rows[0]["ble_channel_mode"] == "per_ce"
+    assert rows[0]["ble_ce_channel_summary"] is None
     assert rows[0]["ble_ci_slots"] is None
 
     assert rows[1]["pair_id"] == 1
@@ -80,6 +84,8 @@ def test_build_pair_parameter_rows_contains_wifi_and_ble_fields():
     assert rows[1]["ble_anchor_slot"] == 4
     assert rows[1]["ble_ci_ms"] == 20.0
     assert rows[1]["ble_ce_ms"] == 3.75
+    assert rows[1]["ble_channel_mode"] == "per_ce"
+    assert rows[1]["ble_ce_channel_summary"] == [3, 7]
 
 
 def test_build_schedule_rows_orders_by_min_schedule_slot():

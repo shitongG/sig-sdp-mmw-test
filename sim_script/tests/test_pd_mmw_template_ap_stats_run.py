@@ -86,6 +86,8 @@ def test_script_writes_csv_outputs_and_avoids_known_warnings():
         assert (pathlib.Path(tmpdir) / "pair_parameters.csv").exists()
         assert (pathlib.Path(tmpdir) / "wifi_ble_schedule.csv").exists()
         assert (pathlib.Path(tmpdir) / "wifi_ble_schedule.png").exists()
+        assert (pathlib.Path(tmpdir) / "wifi_ble_schedule_overview.png").exists()
+        assert any(p.name.startswith("wifi_ble_schedule_window_") for p in pathlib.Path(tmpdir).iterdir())
         assert (pathlib.Path(tmpdir) / "schedule_plot_rows.csv").exists()
         assert "CUDA initialization" not in proc.stderr
         assert "SparseEfficiencyWarning" not in proc.stderr

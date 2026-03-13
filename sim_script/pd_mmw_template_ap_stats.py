@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Patch, Rectangle
 
+from sim_script.plot_schedule_from_csv import render_all_from_csv
 from sim_src.alg.binary_search_relaxation import binary_search_relaxation
 from sim_src.alg.mmw import mmw
 from sim_src.env.env import env
@@ -84,11 +85,16 @@ def assign_macrocycle_start_slots(
     preferred_slots: np.ndarray,
     allow_partial: bool = False,
     pair_order: np.ndarray | None = None,
+    wifi_first: bool = False,
+    return_ble_stats: bool = False,
 ):
     preferred_slots = np.asarray(preferred_slots, dtype=int).ravel()
     macrocycle_slots = e.compute_macrocycle_slots()
     if macrocycle_slots <= 0:
-        return np.zeros(e.n_pair, dtype=int), 0, np.zeros((e.n_pair, 0), dtype=bool), []
+        result = (np.zeros(e.n_pair, dtype=int), 0, np.zeros((e.n_pair, 0), dtype=bool), [])
+        if return_ble_stats:
+            return result + ({},)
+        return result
 
     assigned_starts = np.full(e.n_pair, -1, dtype=int)
     occupancies = np.zeros((e.n_pair, macrocycle_slots), dtype=bool)
@@ -105,6 +111,10 @@ def assign_macrocycle_start_slots(
     width_slots = e.get_pair_width_slots()
     if pair_order is None:
         order = np.lexsort((preferred_slots, -e.pair_priority, -width_slots))
+        if wifi_first:
+            wifi_pairs = order[e.pair_radio_type[order] == e.RADIO_WIFI]
+            ble_pairs = order[e.pair_radio_type[order] == e.RADIO_BLE]
+            order = np.concatenate((wifi_pairs, ble_pairs))
     else:
         order = np.asarray(pair_order, dtype=int).ravel()
     for pair_id in order:
@@ -128,9 +138,51 @@ def assign_macrocycle_start_slots(
             occ_slots = np.where(occ)[0]
             tmp_h = np.asarray(s_gain[pair_id].toarray()).ravel()
             violates = False
+            if wifi_first and e.pair_radio_type[pair_id] == e.RADIO_BLE:
+                assigned_wifi = np.where(np.logical_and(assigned_starts >= 0, e.pair_radio_type == e.RADIO_WIFI))[0]
+                slot_capacity = e.get_ble_start_slot_capacity(
+                    wifi_pair_ids=assigned_wifi,
+                    wifi_start_slots=assigned_starts[assigned_wifi] if assigned_wifi.size else np.array([], dtype=int),
+                    start_slot=int(start_slot),
+                )
+                scheduled_ble_at_start = np.where(
+                    np.logical_and(
+                        assigned_starts == int(start_slot),
+                        e.pair_radio_type == e.RADIO_BLE,
+                    )
+                )[0]
+                if scheduled_ble_at_start.size >= int(slot_capacity):
+                    continue
             for slot in occ_slots:
                 for other_pair in slot_asn[int(slot)]:
-                    if conflict[pair_id, other_pair]:
+                    slot_conflict = bool(conflict[pair_id, other_pair])
+                    if (
+                        slot_conflict
+                        and (
+                            e.ble_channel_mode != "per_ce"
+                            or e.pair_radio_type[pair_id] == e.RADIO_WIFI
+                            or e.pair_radio_type[other_pair] == e.RADIO_WIFI
+                        )
+                    ):
+                        violates = True
+                        break
+                    if slot_conflict and e.ble_channel_mode == "per_ce":
+                        if e.is_slot_channel_conflict(
+                            pair_id,
+                            start_slot,
+                            other_pair,
+                            assigned_starts[other_pair],
+                            int(slot),
+                        ):
+                            violates = True
+                            break
+                    elif e.ble_channel_mode == "per_ce" and e.is_slot_channel_conflict(
+                        pair_id,
+                        start_slot,
+                        other_pair,
+                        assigned_starts[other_pair],
+                        int(slot),
+                    ):
                         violates = True
                         break
                 if violates:
@@ -158,7 +210,40 @@ def assign_macrocycle_start_slots(
                 continue
             raise ValueError(f"Unable to assign non-overlapping macrocycle start slot for pair {pair_id}.")
 
-    return assigned_starts, macrocycle_slots, occupancies, unscheduled
+    result = (assigned_starts, macrocycle_slots, occupancies, unscheduled)
+    if not return_ble_stats:
+        return result
+    return result + (_build_wifi_first_ble_stats(e, assigned_starts) if wifi_first else {},)
+
+
+def _build_wifi_first_ble_stats(e: env, assigned_starts: np.ndarray):
+    assigned_starts = np.asarray(assigned_starts, dtype=int).ravel()
+    ble_stats = {}
+    assigned_wifi = np.where(np.logical_and(assigned_starts >= 0, e.pair_radio_type == e.RADIO_WIFI))[0]
+    assigned_ble = np.where(np.logical_and(assigned_starts >= 0, e.pair_radio_type == e.RADIO_BLE))[0]
+    for start_slot in np.unique(assigned_starts[assigned_ble]) if assigned_ble.size else np.array([], dtype=int):
+        slot = int(start_slot)
+        scheduled_ble = np.where(
+            np.logical_and(
+                assigned_starts == slot,
+                e.pair_radio_type == e.RADIO_BLE,
+            )
+        )[0]
+        capacity = int(
+            e.get_ble_start_slot_capacity(
+                wifi_pair_ids=assigned_wifi,
+                wifi_start_slots=assigned_starts[assigned_wifi] if assigned_wifi.size else np.array([], dtype=int),
+                start_slot=slot,
+            )
+        )
+        ble_stats[slot] = {
+            "effective_ble_channels": capacity,
+            "scheduled_ble_pairs": int(scheduled_ble.size),
+            "no_collision_probability": float(
+                e.compute_ble_no_collision_probability(capacity, int(scheduled_ble.size))
+            ),
+        }
+    return ble_stats
 
 
 def _repair_macrocycle_assignment_by_reordering(
@@ -237,9 +322,34 @@ def _repair_macrocycle_assignment_by_reordering(
     return best_starts, best_macrocycle_slots, best_occupancies, best_unscheduled
 
 
-def _is_better_refill_result(candidate, best, pair_priority: np.ndarray):
+def _is_better_refill_result(
+    candidate,
+    best,
+    pair_priority: np.ndarray,
+    pair_radio_type: np.ndarray | None = None,
+    wifi_radio_id: int = 0,
+    wifi_first: bool = False,
+):
     candidate_unscheduled = list(candidate[3])
     best_unscheduled = list(best[3])
+    if wifi_first:
+        if pair_radio_type is None:
+            raise ValueError("pair_radio_type must be provided when wifi_first=True.")
+        pair_radio_type = np.asarray(pair_radio_type, dtype=int)
+        candidate_wifi_unscheduled = [
+            pair_id for pair_id in candidate_unscheduled if int(pair_radio_type[pair_id]) == int(wifi_radio_id)
+        ]
+        best_wifi_unscheduled = [
+            pair_id for pair_id in best_unscheduled if int(pair_radio_type[pair_id]) == int(wifi_radio_id)
+        ]
+        if len(candidate_wifi_unscheduled) != len(best_wifi_unscheduled):
+            return len(candidate_wifi_unscheduled) < len(best_wifi_unscheduled)
+        candidate_wifi_priority = (
+            float(np.sum(np.asarray(pair_priority)[candidate_wifi_unscheduled])) if candidate_wifi_unscheduled else 0.0
+        )
+        best_wifi_priority = float(np.sum(np.asarray(pair_priority)[best_wifi_unscheduled])) if best_wifi_unscheduled else 0.0
+        if candidate_wifi_priority != best_wifi_priority:
+            return candidate_wifi_priority < best_wifi_priority
     if len(candidate_unscheduled) != len(best_unscheduled):
         return len(candidate_unscheduled) < len(best_unscheduled)
     candidate_priority = float(np.sum(np.asarray(pair_priority)[candidate_unscheduled])) if candidate_unscheduled else 0.0
@@ -253,6 +363,7 @@ def _refill_unscheduled_pairs_by_radio(
     best_result,
     target_radio_type: int,
     max_refill_passes: int = 2,
+    wifi_first: bool = False,
 ):
     best = (
         best_result[0].copy(),
@@ -313,7 +424,14 @@ def _refill_unscheduled_pairs_by_radio(
                     allow_partial=True,
                     pair_order=candidate_order,
                 )
-                if _is_better_refill_result(candidate, best, e.pair_priority):
+                if _is_better_refill_result(
+                    candidate,
+                    best,
+                    e.pair_priority,
+                    pair_radio_type=e.pair_radio_type,
+                    wifi_radio_id=e.RADIO_WIFI,
+                    wifi_first=wifi_first,
+                ):
                     best = (
                         candidate[0].copy(),
                         int(candidate[1]),
@@ -329,7 +447,7 @@ def _refill_unscheduled_pairs_by_radio(
     return best
 
 
-def _apply_refill_pipeline(e: env, preferred_slots: np.ndarray, initial_result):
+def _apply_refill_pipeline(e: env, preferred_slots: np.ndarray, initial_result, wifi_first: bool = False):
     best = _repair_macrocycle_assignment_by_reordering(
         e,
         preferred_slots,
@@ -345,26 +463,36 @@ def _apply_refill_pipeline(e: env, preferred_slots: np.ndarray, initial_result):
         preferred_slots,
         best,
         target_radio_type=e.RADIO_WIFI,
+        wifi_first=wifi_first,
     )
     best = _refill_unscheduled_pairs_by_radio(
         e,
         preferred_slots,
         best,
         target_radio_type=e.RADIO_BLE,
+        wifi_first=wifi_first,
     )
     return best
 
 
-def retry_ble_channels_and_assign_macrocycle(e: env, preferred_slots: np.ndarray, max_ble_channel_retries: int = 0):
+def retry_ble_channels_and_assign_macrocycle(
+    e: env,
+    preferred_slots: np.ndarray,
+    max_ble_channel_retries: int = 0,
+    wifi_first: bool = False,
+    return_ble_stats: bool = False,
+):
     starts, macrocycle_slots, occupancies, unscheduled = assign_macrocycle_start_slots(
         e,
         preferred_slots,
         allow_partial=True,
+        wifi_first=wifi_first,
     )
     best = _apply_refill_pipeline(
         e,
         preferred_slots,
         (starts.copy(), int(macrocycle_slots), occupancies.copy(), list(unscheduled)),
+        wifi_first=wifi_first,
     )
     best_unscheduled = list(best[3])
     retries_used = 0
@@ -383,6 +511,7 @@ def retry_ble_channels_and_assign_macrocycle(e: env, preferred_slots: np.ndarray
             e,
             preferred_slots,
             allow_partial=True,
+            wifi_first=wifi_first,
         )
         candidate = _apply_refill_pipeline(
             e,
@@ -390,7 +519,14 @@ def retry_ble_channels_and_assign_macrocycle(e: env, preferred_slots: np.ndarray
             (candidate[0].copy(), int(candidate[1]), candidate[2].copy(), list(candidate[3])),
         )
         candidate_unscheduled = list(candidate[3])
-        if _is_better_refill_result(candidate, best, e.pair_priority):
+        if _is_better_refill_result(
+            candidate,
+            best,
+            e.pair_priority,
+            pair_radio_type=e.pair_radio_type,
+            wifi_radio_id=e.RADIO_WIFI,
+            wifi_first=wifi_first,
+        ):
             best = (
                 candidate[0].copy(),
                 int(candidate[1]),
@@ -401,6 +537,8 @@ def retry_ble_channels_and_assign_macrocycle(e: env, preferred_slots: np.ndarray
         if not best_unscheduled:
             break
 
+    if return_ble_stats:
+        return (*best, retries_used, _build_wifi_first_ble_stats(e, best[0]) if wifi_first else {})
     return (*best, retries_used)
 
 
@@ -419,6 +557,8 @@ def build_pair_parameter_rows(
     pair_radio_type,
     pair_channel,
     pair_priority,
+    ble_channel_mode,
+    pair_ble_ce_channels,
     pair_start_time_slot,
     pair_wifi_anchor_slot,
     pair_wifi_period_slots,
@@ -433,11 +573,17 @@ def build_pair_parameter_rows(
     slot_time,
     wifi_id,
     ble_id,
+    ble_slot_stats=None,
 ):
     rows = []
+    ble_slot_stats = {} if ble_slot_stats is None else ble_slot_stats
     for pair_id in range(pair_radio_type.shape[0]):
         is_ble = int(pair_radio_type[pair_id]) == int(ble_id)
         schedule_slot = int(z_vec[pair_id])
+        slot_stats = ble_slot_stats.get(schedule_slot, {}) if is_ble and schedule_slot >= 0 else {}
+        ce_channel_summary = None
+        if is_ble and ble_channel_mode == "per_ce":
+            ce_channel_summary = [int(ch) for ch in pair_ble_ce_channels.get(int(pair_id), np.zeros(0, dtype=int))]
         rows.append(
             {
                 "pair_id": int(pair_id),
@@ -447,6 +593,8 @@ def build_pair_parameter_rows(
                 "priority": float(pair_priority[pair_id]),
                 "schedule_slot": schedule_slot,
                 "schedule_time_ms": float(schedule_slot * slot_time * 1e3),
+                "ble_channel_mode": str(ble_channel_mode),
+                "ble_ce_channel_summary": ce_channel_summary,
                 "start_time_slot": int(pair_start_time_slot[pair_id]),
                 "wifi_anchor_slot": int(pair_wifi_anchor_slot[pair_id]) if not is_ble else None,
                 "wifi_period_slots": int(pair_wifi_period_slots[pair_id]) if not is_ble else None,
@@ -459,6 +607,9 @@ def build_pair_parameter_rows(
                 "ble_ce_slots": int(pair_ble_ce_slots[pair_id]) if is_ble else None,
                 "ble_ce_ms": float(pair_ble_ce_slots[pair_id] * slot_time * 1e3) if is_ble else None,
                 "ble_ce_feasible": bool(pair_ble_ce_feasible[pair_id]) if is_ble else None,
+                "effective_ble_channels": int(slot_stats["effective_ble_channels"]) if slot_stats else None,
+                "scheduled_ble_pairs": int(slot_stats["scheduled_ble_pairs"]) if slot_stats else None,
+                "no_collision_probability": float(slot_stats["no_collision_probability"]) if slot_stats else None,
                 "macrocycle_slots": int(macrocycle_slots),
                 "occupied_slots_in_macrocycle": [int(s) for s in np.where(occupied_slots[pair_id])[0]],
             }
@@ -466,12 +617,20 @@ def build_pair_parameter_rows(
     return rows
 
 
-def compute_pair_parameter_rows(e: env, z_vec: np.ndarray, occupied_slots: np.ndarray, macrocycle_slots: int):
+def compute_pair_parameter_rows(
+    e: env,
+    z_vec: np.ndarray,
+    occupied_slots: np.ndarray,
+    macrocycle_slots: int,
+    ble_slot_stats=None,
+):
     return build_pair_parameter_rows(
         pair_office_id=e.pair_office_id,
         pair_radio_type=e.pair_radio_type,
         pair_channel=e.pair_channel,
         pair_priority=e.pair_priority,
+        ble_channel_mode=e.ble_channel_mode,
+        pair_ble_ce_channels=e.pair_ble_ce_channels if e.pair_ble_ce_channels is not None else {},
         pair_start_time_slot=e.pair_start_time_slot,
         pair_wifi_anchor_slot=e.pair_wifi_anchor_slot,
         pair_wifi_period_slots=e.pair_wifi_period_slots,
@@ -486,6 +645,7 @@ def compute_pair_parameter_rows(e: env, z_vec: np.ndarray, occupied_slots: np.nd
         slot_time=e.slot_time,
         wifi_id=e.RADIO_WIFI,
         ble_id=e.RADIO_BLE,
+        ble_slot_stats=ble_slot_stats,
     )
 
 
@@ -543,10 +703,36 @@ def get_pair_channel_ranges_mhz(e: env, pair_ids):
     return ranges
 
 
-def build_schedule_plot_rows(pair_rows, pair_channel_ranges):
+def build_schedule_plot_rows(pair_rows, pair_channel_ranges, e: env | None = None):
     rows = []
     for row in pair_rows:
         pair_id = int(row["pair_id"])
+        if e is not None and row["radio"] == "ble" and getattr(e, "ble_channel_mode", "single") == "per_ce":
+            instances = e.expand_pair_event_instances(
+                pair_id,
+                int(row["macrocycle_slots"]),
+                start_slot=int(row["schedule_slot"]),
+            )
+            for inst in instances:
+                low_mhz = float(inst["freq_range_hz"][0] / 1e6)
+                high_mhz = float(inst["freq_range_hz"][1] / 1e6)
+                label = f"{pair_id} B-ch{int(inst['channel'])} ev{int(inst['event_index'])}"
+                wrapped_ranges = inst.get("wrapped_slot_ranges", [inst["slot_range"]])
+                for seg_start, seg_end in wrapped_ranges:
+                    for slot in range(int(seg_start), int(seg_end)):
+                        rows.append(
+                            {
+                                "pair_id": pair_id,
+                                "radio": row["radio"],
+                                "channel": int(inst["channel"]),
+                                "slot": int(slot),
+                                "freq_low_mhz": low_mhz,
+                                "freq_high_mhz": high_mhz,
+                                "label": label,
+                            }
+                        )
+            continue
+
         low_mhz, high_mhz = pair_channel_ranges[pair_id]
         radio_tag = "W" if row["radio"] == "wifi" else "B"
         label = f"{pair_id} {radio_tag}-ch{int(row['channel'])}"
@@ -562,6 +748,62 @@ def build_schedule_plot_rows(pair_rows, pair_channel_ranges):
                     "label": label,
                 }
             )
+    return rows + build_ble_overlap_plot_rows(rows)
+
+
+def build_ble_overlap_plot_rows(plot_rows):
+    overlap_rows = []
+    rows_by_slot = {}
+    for row in plot_rows:
+        rows_by_slot.setdefault(int(row["slot"]), []).append(row)
+    for slot, rows in rows_by_slot.items():
+        ble_rows = [row for row in rows if row["radio"] == "ble"]
+        for idx, left in enumerate(ble_rows):
+            for right in ble_rows[idx + 1 :]:
+                lo = max(float(left["freq_low_mhz"]), float(right["freq_low_mhz"]))
+                hi = min(float(left["freq_high_mhz"]), float(right["freq_high_mhz"]))
+                if lo >= hi:
+                    continue
+                overlap_rows.append(
+                    {
+                        "pair_id": -1,
+                        "radio": "ble_overlap",
+                        "channel": -1,
+                        "slot": int(slot),
+                        "freq_low_mhz": float(lo),
+                        "freq_high_mhz": float(hi),
+                        "label": f"BLE overlap {min(int(left['pair_id']), int(right['pair_id']))}/{max(int(left['pair_id']), int(right['pair_id']))}",
+                    }
+                )
+    return overlap_rows
+
+
+def build_ble_ce_event_rows(e: env, pair_rows):
+    rows = []
+    if getattr(e, "ble_channel_mode", "single") != "per_ce":
+        return rows
+    for row in pair_rows:
+        if row["radio"] != "ble" or int(row["schedule_slot"]) < 0:
+            continue
+        instances = e.expand_pair_event_instances(
+            int(row["pair_id"]),
+            int(row["macrocycle_slots"]),
+            start_slot=int(row["schedule_slot"]),
+        )
+        for inst in instances:
+            wrapped_ranges = inst.get("wrapped_slot_ranges", [inst["slot_range"]])
+            for seg_start, seg_end in wrapped_ranges:
+                rows.append(
+                    {
+                        "pair_id": int(row["pair_id"]),
+                        "event_index": int(inst["event_index"]),
+                        "channel": int(inst["channel"]),
+                        "slot_start": int(seg_start),
+                        "slot_end": int(seg_end),
+                        "freq_low_mhz": float(inst["freq_range_hz"][0] / 1e6),
+                        "freq_high_mhz": float(inst["freq_range_hz"][1] / 1e6),
+                    }
+                )
     return rows
 
 
@@ -627,7 +869,7 @@ def print_pair_parameter_rows(rows):
     print("=== Pair Parameter Table ===")
     print(
         "pair_id,office_id,radio,channel,priority,schedule_slot,schedule_time_ms,"
-        "start_time_slot,"
+        "ble_channel_mode,ble_ce_channel_summary,start_time_slot,"
         "wifi_anchor_slot,wifi_period_slots,wifi_period_ms,wifi_tx_slots,wifi_tx_ms,"
         "ble_anchor_slot,ble_ci_slots,ble_ci_ms,ble_ce_slots,ble_ce_ms,ble_ce_feasible,"
         "macrocycle_slots,occupied_slots_in_macrocycle"
@@ -643,6 +885,8 @@ def print_pair_parameter_rows(rows):
                     _fmt_cell(row["priority"]),
                     _fmt_cell(row["schedule_slot"]),
                     _fmt_cell(row["schedule_time_ms"]),
+                    _fmt_cell(row["ble_channel_mode"]),
+                    _fmt_cell(row["ble_ce_channel_summary"]),
                     _fmt_cell(row["start_time_slot"]),
                     _fmt_cell(row["wifi_anchor_slot"]),
                     _fmt_cell(row["wifi_period_slots"]),
@@ -714,10 +958,21 @@ def parse_args():
     parser.add_argument("--max-slots", type=int, default=300, help="最大允许调度时隙数；超过后输出当前成功调度结果")
     parser.add_argument("--ble-channel-retries", type=int, default=0, help="对未调度 BLE pair 重新选信道并重试宏周期排布的次数")
     parser.add_argument(
+        "--ble-channel-mode",
+        choices=["single", "per_ce"],
+        default="single",
+        help="BLE 信道模式：single 为每 pair 单信道，per_ce 为每个 CE 独立信道。",
+    )
+    parser.add_argument(
         "--output-dir",
         type=str,
         default="sim_script/output",
         help="CSV 输出目录（会写出 pair_parameters.csv 和 wifi_ble_schedule.csv）",
+    )
+    parser.add_argument(
+        "--wifi-first-ble-scheduling",
+        action="store_true",
+        help="先调度 WiFi，再按剩余 BLE 可用物理信道数约束 BLE 起始时隙调度。",
     )
     args = parser.parse_args()
     if args.max_slots < 2:
@@ -733,12 +988,10 @@ if __name__ == "__main__":
 
     e = env(
         cell_edge=7.0,
-        # cell_size=args.cell_size,
-        cell_size=1,
-        # pair_density_per_m2=args.pair_density,
-        pair_density_per_m2=0.5,
+        cell_size=args.cell_size,
+        pair_density_per_m2=args.pair_density,
         seed=int(time.time()) if args.seed is None else args.seed,
-        radio_prob=(0.3, 0.7),
+        radio_prob=(0.2, 0.8),
         slot_time=1.25e-3,
         wifi_tx_min_s=5e-3,
         wifi_tx_max_s=10e-3,
@@ -751,8 +1004,8 @@ if __name__ == "__main__":
         ble_payload_bits=800,
         ble_phy_rate_bps=2e6,
         ble_ci_exp_min=3,
-        # ble_ci_exp_max=11,
         ble_ci_exp_max=6,
+        ble_channel_mode=args.ble_channel_mode,
     )
 
     print("n_pair =", e.n_pair)
@@ -765,21 +1018,45 @@ if __name__ == "__main__":
     print("ble_ci_quanta_candidates:", e.ble_ci_quanta_candidates.tolist())
     print("n_wifi_pair =", int(np.sum(e.pair_radio_type == e.RADIO_WIFI)))
     print("n_ble_pair  =", int(np.sum(e.pair_radio_type == e.RADIO_BLE)))
+    print("wifi_first_ble_scheduling =", bool(args.wifi_first_ble_scheduling))
+
+    def make_alg():
+        alg = mmw(nit=args.mmw_nit, eta=args.mmw_eta, device=runtime_device)
+        alg.DEBUG = False
+        alg.LOG_GAP = False
+        return alg
 
     bs = binary_search_relaxation()
+    bs.force_lower_bound = False
+    bs.max_slot_cap = 1000
     bs.user_priority = e.pair_priority
     bs.slot_mask_builder = lambda Z, state, ee=e: ee.build_slot_compatibility_mask(Z)
-    bs.force_lower_bound = False
-    # bs.max_slot_cap = args.max_slots
-    bs.max_slot_cap = 1000  # 不强制限制最大时隙数，改为在结果分析阶段判断是否超过 args.max_slots
-
-    alg = mmw(nit=args.mmw_nit, eta=args.mmw_eta, device=runtime_device)
-    alg.DEBUG = False
-    alg.LOG_GAP = False
-    bs.feasibility_check_alg = alg
+    if args.wifi_first_ble_scheduling:
+        bs.strategy = "wifi_first"
+        bs.pair_radio_type = e.pair_radio_type
+        bs.wifi_radio_id = e.RADIO_WIFI
+        bs.ble_radio_id = e.RADIO_BLE
+    else:
+        bs.strategy = "joint"
+    bs.feasibility_check_alg = make_alg()
 
     z_vec_pref, Z_fin_mmw, remainder = bs.run(e.generate_S_Q_hmax())
-    partial = bs.last_partial_schedule or {"slot_cap_hit": False, "scheduled_pair_ids": list(range(e.n_pair)), "unscheduled_pair_ids": []}
+    partial = bs.last_partial_schedule or {
+        "slot_cap_hit": False,
+        "scheduled_pair_ids": list(range(e.n_pair)),
+        "unscheduled_pair_ids": [],
+    }
+    if args.wifi_first_ble_scheduling:
+        stage_results = bs.last_stage_results or {"wifi": {"z_fin": 0, "remainder": 0}, "ble": {"z_fin": 0, "remainder": 0}}
+        print(
+            "WiFi-first stage result:",
+            {
+                "wifi_slots": int(stage_results["wifi"]["z_fin"]),
+                "ble_slots": int(stage_results["ble"]["z_fin"]),
+                "wifi_remainder": int(stage_results["wifi"]["remainder"]),
+                "ble_remainder": int(stage_results["ble"]["remainder"]),
+            },
+        )
     if partial["unscheduled_pair_ids"]:
         avg_bler = float("nan")
         max_bler = float("nan")
@@ -791,11 +1068,25 @@ if __name__ == "__main__":
         weighted_bler = float(e.evaluate_weighted_bler(z_vec_pref, Z_fin_mmw))
     print("MMW result:", Z_fin_mmw, remainder, avg_bler, max_bler, weighted_bler)
     z_vec = np.asarray(z_vec_pref, dtype=int)
-    schedule_start_slots, macrocycle_slots, occupancy, macro_unscheduled, ble_channel_retries_used = retry_ble_channels_and_assign_macrocycle(
-        e,
-        z_vec,
-        max_ble_channel_retries=args.ble_channel_retries,
-    )
+    if args.wifi_first_ble_scheduling:
+        schedule_start_slots, macrocycle_slots, occupancy, macro_unscheduled, ble_channel_retries_used, ble_slot_stats = (
+            retry_ble_channels_and_assign_macrocycle(
+                e,
+                z_vec,
+                max_ble_channel_retries=args.ble_channel_retries,
+                wifi_first=True,
+                return_ble_stats=True,
+            )
+        )
+    else:
+        schedule_start_slots, macrocycle_slots, occupancy, macro_unscheduled, ble_channel_retries_used = (
+            retry_ble_channels_and_assign_macrocycle(
+                e,
+                z_vec,
+                max_ble_channel_retries=args.ble_channel_retries,
+            )
+        )
+        ble_slot_stats = {}
     scheduled_pair_ids, unscheduled_pair_ids = resolve_macrocycle_schedule_status(schedule_start_slots, occupancy)
     partial_schedule = bool(unscheduled_pair_ids)
     print("macrocycle_slots =", macrocycle_slots)
@@ -822,7 +1113,13 @@ if __name__ == "__main__":
             },
         )
 
-    pair_rows = compute_pair_parameter_rows(e, schedule_start_slots, occupancy, macrocycle_slots)
+    pair_rows = compute_pair_parameter_rows(
+        e,
+        schedule_start_slots,
+        occupancy,
+        macrocycle_slots,
+        ble_slot_stats=ble_slot_stats,
+    )
     print_pair_parameter_rows(pair_rows)
     write_rows_to_csv(
         os.path.join(args.output_dir, "pair_parameters.csv"),
@@ -834,6 +1131,8 @@ if __name__ == "__main__":
             "priority",
             "schedule_slot",
             "schedule_time_ms",
+            "ble_channel_mode",
+            "ble_ce_channel_summary",
             "start_time_slot",
             "wifi_anchor_slot",
             "wifi_period_slots",
@@ -846,6 +1145,9 @@ if __name__ == "__main__":
             "ble_ce_slots",
             "ble_ce_ms",
             "ble_ce_feasible",
+            "effective_ble_channels",
+            "scheduled_ble_pairs",
+            "no_collision_probability",
             "macrocycle_slots",
             "occupied_slots_in_macrocycle",
         ],
@@ -879,6 +1181,8 @@ if __name__ == "__main__":
             "priority",
             "schedule_slot",
             "schedule_time_ms",
+            "ble_channel_mode",
+            "ble_ce_channel_summary",
             "start_time_slot",
             "wifi_anchor_slot",
             "wifi_period_slots",
@@ -891,13 +1195,17 @@ if __name__ == "__main__":
             "ble_ce_slots",
             "ble_ce_ms",
             "ble_ce_feasible",
+            "effective_ble_channels",
+            "scheduled_ble_pairs",
+            "no_collision_probability",
             "macrocycle_slots",
             "occupied_slots_in_macrocycle",
         ],
         unscheduled_pair_rows,
     )
     pair_channel_ranges = get_pair_channel_ranges_mhz(e, scheduled_pair_ids)
-    schedule_plot_rows = build_schedule_plot_rows(scheduled_pair_rows, pair_channel_ranges)
+    schedule_plot_rows = build_schedule_plot_rows(scheduled_pair_rows, pair_channel_ranges, e=e)
+    ble_ce_event_rows = build_ble_ce_event_rows(e, scheduled_pair_rows)
     write_rows_to_csv(
         os.path.join(args.output_dir, "schedule_plot_rows.csv"),
         [
@@ -911,14 +1219,37 @@ if __name__ == "__main__":
         ],
         schedule_plot_rows,
     )
+    if args.ble_channel_mode == "per_ce":
+        write_rows_to_csv(
+            os.path.join(args.output_dir, "ble_ce_channel_events.csv"),
+            [
+                "pair_id",
+                "event_index",
+                "channel",
+                "slot_start",
+                "slot_end",
+                "freq_low_mhz",
+                "freq_high_mhz",
+            ],
+            ble_ce_event_rows,
+        )
+    overview_plot_path, window_plot_paths = render_all_from_csv(
+        args.output_dir,
+        macrocycle_slots=macrocycle_slots,
+        window_slots=128,
+    )
     schedule_plot_path = os.path.join(args.output_dir, "wifi_ble_schedule.png")
-    render_schedule_plot(schedule_plot_rows, schedule_plot_path, macrocycle_slots=macrocycle_slots)
+    # Keep the legacy filename for compatibility by copying the overview output.
+    with open(overview_plot_path, "rb") as src, open(schedule_plot_path, "wb") as dst:
+        dst.write(src.read())
     print(
         "CSV outputs:",
         os.path.join(args.output_dir, "pair_parameters.csv"),
         os.path.join(args.output_dir, "wifi_ble_schedule.csv"),
     )
     print("Schedule plot:", schedule_plot_path)
+    print("Schedule overview plot:", str(overview_plot_path))
+    print("Schedule window plots:", [str(p) for p in window_plot_paths])
 
     office_rows = compute_office_pair_slot_stats_for_pair_ids(e, schedule_start_slots, scheduled_pair_ids)
     print_office_stats(office_rows)

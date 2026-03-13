@@ -24,6 +24,12 @@ class env:
         min_s_n_ratio=0.1,
         packet_bit=8000,
         bandwidth=5e6,
+        wifi_packet_bit=None,
+        ble_packet_bit=None,
+        pair_packet_bits=None,
+        user_packet_bits=None,
+        pair_bandwidth_hz=None,
+        user_bandwidth_hz=None,
         slot_time=1.25e-3,
         max_err=1e-5,
         seed=1,
@@ -47,6 +53,7 @@ class env:
         ble_phy_rate_bps=1e6,
         ble_ci_exp_min=3,
         ble_ci_exp_max=11,
+        ble_channel_mode="single",
     ):
         """
         可调参数（中文说明）：
@@ -86,6 +93,12 @@ class env:
         self.min_s_n_ratio = min_s_n_ratio
         self.packet_bit = packet_bit
         self.bandwidth = bandwidth
+        self.wifi_packet_bit = float(packet_bit if wifi_packet_bit is None else wifi_packet_bit)
+        self.ble_packet_bit = float(packet_bit if ble_packet_bit is None else ble_packet_bit)
+        self._pair_packet_bits_input = pair_packet_bits
+        self._user_packet_bits_input = user_packet_bits
+        self._pair_bandwidth_hz_input = pair_bandwidth_hz
+        self._user_bandwidth_hz_input = user_bandwidth_hz
         self.slot_time = slot_time
         self.max_err = max_err
 
@@ -99,6 +112,15 @@ class env:
         self.device_priority = None
         self.user_priority = None
         self.pair_priority = None
+        self.device_packet_bits = None
+        self.user_packet_bits = None
+        self.pair_packet_bits = None
+        self.device_bandwidth_hz = None
+        self.user_bandwidth_hz = None
+        self.pair_bandwidth_hz = None
+        self.device_min_sinr = None
+        self.user_min_sinr = None
+        self.pair_min_sinr = None
         self.prio_prob = np.array(prio_prob, dtype=float)
         self.prio_value = np.array(prio_value, dtype=float)
 
@@ -109,6 +131,9 @@ class env:
         self.ble_channel_count = int(ble_channel_count)
         self.wifi_channel_bandwidth_hz = float(wifi_channel_bandwidth_hz)
         self.ble_channel_bandwidth_hz = float(ble_channel_bandwidth_hz)
+        if ble_channel_mode not in {"single", "per_ce"}:
+            raise ValueError("ble_channel_mode must be 'single' or 'per_ce'.")
+        self.ble_channel_mode = ble_channel_mode
         self.wifi_reuse_channels = np.array(wifi_reuse_channels, dtype=int)
         self.wifi_tx_min_s = float(wifi_tx_min_s)
         self.wifi_tx_max_s = float(wifi_tx_max_s)
@@ -171,6 +196,7 @@ class env:
         self.pair_ble_ce_slots = None
         self.pair_ble_ce_required_s = None
         self.pair_ble_ce_feasible = None
+        self.pair_ble_ce_channels = None
 
         self.min_sinr = None
         self.loss = None
@@ -250,6 +276,7 @@ class env:
         self.pair_ble_ce_slots = np.zeros(self.n_pair, dtype=int)
         self.pair_ble_ce_required_s = np.zeros(self.n_pair, dtype=float)
         self.pair_ble_ce_feasible = np.zeros(self.n_pair, dtype=bool)
+        self.pair_ble_ce_channels = {} if self.ble_channel_mode == "per_ce" else None
         self.pair_tx_locs = np.zeros((self.n_pair, 2), dtype=float)
         self.pair_rx_locs = np.zeros((self.n_pair, 2), dtype=float)
 
@@ -276,6 +303,20 @@ class env:
 
         self.pair_priority = self._sample_priority(self.n_pair)
         self.device_priority = self.pair_priority
+        self.pair_packet_bits = self._resolve_pair_float_array(
+            pair_values=self._pair_packet_bits_input,
+            user_values=self._user_packet_bits_input,
+            wifi_default=self.wifi_packet_bit,
+            ble_default=self.ble_packet_bit,
+            attr_name="packet bits",
+        )
+        self.pair_bandwidth_hz = self._resolve_pair_float_array(
+            pair_values=self._pair_bandwidth_hz_input,
+            user_values=self._user_bandwidth_hz_input,
+            wifi_default=self.wifi_channel_bandwidth_hz,
+            ble_default=self.ble_channel_bandwidth_hz,
+            attr_name="bandwidth",
+        )
 
         # 兼容旧接口：把 pair 语义映射到 device_* 与 user_* 字段。
         self.device_radio_type = self.pair_radio_type
@@ -289,6 +330,8 @@ class env:
         self.device_ble_ce_slots = self.pair_ble_ce_slots
         self.device_ble_ce_required_s = self.pair_ble_ce_required_s
         self.device_ble_ce_feasible = self.pair_ble_ce_feasible
+        self.device_packet_bits = self.pair_packet_bits
+        self.device_bandwidth_hz = self.pair_bandwidth_hz
         self.user_priority = self.pair_priority
         self.user_radio_type = self.pair_radio_type
         self.user_radio_channel = self.pair_channel
@@ -301,10 +344,28 @@ class env:
         self.user_ble_ce_slots = self.pair_ble_ce_slots
         self.user_ble_ce_required_s = self.pair_ble_ce_required_s
         self.user_ble_ce_feasible = self.pair_ble_ce_feasible
+        self.user_packet_bits = self.pair_packet_bits
+        self.user_bandwidth_hz = self.pair_bandwidth_hz
         self.device_locs = self.pair_tx_locs
         self.device_dirs = np.zeros((self.n_pair, 2), dtype=float)
         self.sta_locs = self.device_locs
         self.sta_dirs = self.device_dirs
+        self._compute_min_sinr()
+
+    def _resolve_pair_float_array(self, pair_values, user_values, wifi_default, ble_default, attr_name):
+        values = pair_values if pair_values is not None else user_values
+        if values is not None:
+            arr = np.asarray(values, dtype=float)
+            if arr.shape != (self.n_pair,):
+                raise ValueError(f"{attr_name} override length must match number of pairs.")
+            return arr.copy()
+
+        defaults = np.where(
+            self.pair_radio_type == self.RADIO_WIFI,
+            float(wifi_default),
+            float(ble_default),
+        )
+        return np.asarray(defaults, dtype=float)
 
     def _config_wifi_timing(self):
         base = 1.25e-3
@@ -423,6 +484,25 @@ class env:
                 high = int(low + self.pair_ble_ci_slots[k] - self.pair_ble_ce_slots[k])
                 # 中文：anchor 以 slot 索引表示，天然是 slot_time 的整数倍。
                 self.pair_ble_anchor_slot[k] = int(self.rand_gen_loc.integers(low=low, high=high + 1))
+                if self.ble_channel_mode == "per_ce":
+                    self._assign_ble_ce_channels(int(k))
+
+    def _assign_ble_ce_channels(self, pair_id):
+        if self.ble_channel_mode != "per_ce":
+            return
+        ci_slots = int(self.pair_ble_ci_slots[pair_id])
+        if ci_slots <= 0:
+            self.pair_ble_ce_channels[pair_id] = np.zeros(0, dtype=int)
+            return
+
+        macrocycle_slots = int(self.compute_macrocycle_slots())
+        event_count = max(1, macrocycle_slots // ci_slots) if macrocycle_slots > 0 else 1
+        self.pair_ble_ce_channels[pair_id] = self.rand_gen_loc.integers(
+            low=0,
+            high=self.ble_channel_count,
+            size=event_count,
+            dtype=int,
+        )
 
     def build_slot_occupancy_mask(self, Z):
         # 中文：构建“用户-时隙占用窗口掩码”。
@@ -514,7 +594,8 @@ class env:
         start = int(start_slot % period_slots)
         z = start
         while z < macrocycle_slots:
-            occ[z:min(z + width_slots, macrocycle_slots)] = True
+            for offset in range(width_slots):
+                occ[(z + offset) % macrocycle_slots] = True
             z += period_slots
         return occ
 
@@ -532,6 +613,137 @@ class env:
         if self.pair_radio_type[pair_idx] == self.RADIO_WIFI:
             return self._get_wifi_channel_range_hz(self.pair_channel[pair_idx])
         return self._get_ble_channel_range_hz(self.pair_channel[pair_idx])
+
+    def _get_pair_link_range_hz_for_channel(self, pair_idx, channel):
+        if self.pair_radio_type[pair_idx] == self.RADIO_WIFI:
+            return self._get_wifi_channel_range_hz(int(channel))
+        return self._get_ble_channel_range_hz(int(channel))
+
+    def get_available_ble_channels_for_start_slot(self, wifi_pair_ids, wifi_start_slots, start_slot):
+        wifi_pair_ids = np.asarray(wifi_pair_ids, dtype=int).ravel()
+        wifi_start_slots = np.asarray(wifi_start_slots, dtype=int).ravel()
+        if wifi_pair_ids.shape != wifi_start_slots.shape:
+            raise ValueError("wifi_pair_ids and wifi_start_slots must have the same shape.")
+
+        blocked = np.zeros(self.ble_channel_count, dtype=bool)
+        macrocycle_slots = max(int(self.compute_macrocycle_slots()), 1)
+        slot_idx = int(start_slot) % macrocycle_slots
+        for pair_id, pair_start in zip(wifi_pair_ids, wifi_start_slots):
+            pair_id = int(pair_id)
+            if self.pair_radio_type[pair_id] != self.RADIO_WIFI:
+                continue
+            occ = self.expand_pair_occupancy(pair_id, int(pair_start), macrocycle_slots)
+            if not occ[slot_idx]:
+                continue
+            w0, w1 = self._get_wifi_channel_range_hz(int(self.pair_channel[pair_id]))
+            for ble_idx in range(self.ble_channel_count):
+                b0, b1 = self._get_ble_channel_range_hz(int(ble_idx))
+                if env._is_range_overlap(w0, w1, b0, b1):
+                    blocked[ble_idx] = True
+        return np.where(~blocked)[0]
+
+    def get_ble_start_slot_capacity(self, wifi_pair_ids, wifi_start_slots, start_slot):
+        return int(
+            self.get_available_ble_channels_for_start_slot(
+                wifi_pair_ids=wifi_pair_ids,
+                wifi_start_slots=wifi_start_slots,
+                start_slot=start_slot,
+            ).size
+        )
+
+    @staticmethod
+    def compute_ble_no_collision_probability(c, n):
+        c = int(c)
+        n = int(n)
+        if n <= 1:
+            return 1.0
+        if c <= 0:
+            return 0.0
+        return float((1.0 - 1.0 / c) ** (n - 1))
+
+    def get_pair_channel_for_slot(self, pair_id, slot, start_slot):
+        pair_id = int(pair_id)
+        slot = int(slot)
+        period_slots = int(self.get_pair_period_slots()[pair_id])
+        if period_slots <= 0:
+            return None
+        macrocycle_slots = int(self.compute_macrocycle_slots())
+        if macrocycle_slots <= 0:
+            return None
+        slot_idx = int(slot % macrocycle_slots)
+        instances = self.expand_pair_event_instances(pair_id, macrocycle_slots, start_slot=start_slot)
+        for inst in instances:
+            for seg_start, seg_end in inst.get("wrapped_slot_ranges", [inst["slot_range"]]):
+                if int(seg_start) <= slot_idx < int(seg_end):
+                    return int(inst["channel"])
+        return int(self.pair_channel[pair_id])
+
+    def is_slot_channel_conflict(self, pair_a, start_a, pair_b, start_b, slot):
+        ch_a = self.get_pair_channel_for_slot(pair_a, slot, start_a)
+        ch_b = self.get_pair_channel_for_slot(pair_b, slot, start_b)
+        if ch_a is None or ch_b is None:
+            return False
+        a0, a1 = self._get_pair_link_range_hz_for_channel(pair_a, ch_a)
+        b0, b1 = self._get_pair_link_range_hz_for_channel(pair_b, ch_b)
+        return env._is_range_overlap(a0, a1, b0, b1)
+
+    def expand_pair_event_instances(self, pair_id, macrocycle_slots, start_slot=None):
+        pair_id = int(pair_id)
+        macrocycle_slots = int(macrocycle_slots)
+        instances = []
+        if macrocycle_slots <= 0:
+            return instances
+        if self.pair_radio_type[pair_id] == self.RADIO_BLE and not self.pair_ble_ce_feasible[pair_id]:
+            return instances
+
+        period_slots = int(self.get_pair_period_slots()[pair_id])
+        width_slots = int(self.get_pair_width_slots()[pair_id])
+        if period_slots <= 0 or width_slots <= 0:
+            return instances
+
+        if start_slot is None:
+            if self.pair_radio_type[pair_id] == self.RADIO_WIFI:
+                start = int(self.pair_wifi_anchor_slot[pair_id] % period_slots)
+            else:
+                start = int(self.pair_ble_anchor_slot[pair_id] % period_slots)
+        else:
+            start = int(start_slot % period_slots)
+
+        event_idx = 0
+        z = start
+        while z < macrocycle_slots:
+            end_z = z + width_slots
+            wrapped_ranges = []
+            remaining = width_slots
+            cursor = z
+            while remaining > 0:
+                seg_start = cursor % macrocycle_slots
+                seg_len = min(remaining, macrocycle_slots - seg_start)
+                wrapped_ranges.append((int(seg_start), int(seg_start + seg_len)))
+                cursor += seg_len
+                remaining -= seg_len
+            if self.pair_radio_type[pair_id] == self.RADIO_BLE and self.ble_channel_mode == "per_ce":
+                ce_channels = self.pair_ble_ce_channels.get(pair_id, np.zeros(0, dtype=int))
+                if ce_channels.size == 0:
+                    channel = int(self.pair_channel[pair_id])
+                else:
+                    channel = int(ce_channels[min(event_idx, ce_channels.size - 1)])
+            else:
+                channel = int(self.pair_channel[pair_id])
+            low_hz, high_hz = self._get_pair_link_range_hz_for_channel(pair_id, channel)
+            instances.append(
+                {
+                    "pair_id": pair_id,
+                    "event_index": event_idx,
+                    "channel": channel,
+                    "slot_range": (int(z), int(end_z)),
+                    "wrapped_slot_ranges": wrapped_ranges,
+                    "freq_range_hz": (float(low_hz), float(high_hz)),
+                }
+            )
+            event_idx += 1
+            z += period_slots
+        return instances
 
     def _build_link_overlap_mask(self):
         # 中文：只保留频段重叠链路的干扰项；非重叠频段干扰置零。
@@ -639,6 +851,22 @@ class env:
         ble_ids = pair_ids[self.pair_radio_type[pair_ids] == self.RADIO_BLE]
         if ble_ids.size == 0:
             return
+        if self.ble_channel_mode == "per_ce":
+            for pair_id in ble_ids:
+                prev = self.pair_ble_ce_channels.get(int(pair_id), np.zeros(0, dtype=int))
+                if prev.size == 0:
+                    self._assign_ble_ce_channels(int(pair_id))
+                    continue
+                new_channels = self.rand_gen_loc.integers(
+                    low=0,
+                    high=self.ble_channel_count,
+                    size=prev.size,
+                    dtype=int,
+                )
+                if self.ble_channel_count > 1 and np.array_equal(new_channels, prev):
+                    new_channels = (new_channels + 1) % self.ble_channel_count
+                self.pair_ble_ce_channels[int(pair_id)] = new_channels
+            return
         self.pair_channel[ble_ids] = self.rand_gen_loc.integers(
             low=0,
             high=self.ble_channel_count,
@@ -652,9 +880,18 @@ class env:
         return dd / np.linalg.norm(dd)
 
     def _compute_min_sinr(self):
-        min_sinr_db = env.bisection_method(self.packet_bit, self.bandwidth, self.slot_time, self.max_err)
-        self.min_sinr = env.db_to_dec(min_sinr_db)
-        return self.min_sinr
+        min_sinr_db = np.array(
+            [
+                env.bisection_method(self.pair_packet_bits[k], self.pair_bandwidth_hz[k], self.slot_time, self.max_err)
+                for k in range(self.n_pair)
+            ],
+            dtype=float,
+        )
+        self.pair_min_sinr = env.db_to_dec(min_sinr_db)
+        self.device_min_sinr = self.pair_min_sinr
+        self.user_min_sinr = self.pair_min_sinr
+        self.min_sinr = self.pair_min_sinr
+        return self.pair_min_sinr
 
     def rand_device_mobility(self, mobility_in_meter_s=0.0, t_us=0, resolution_us=1.0):
         if mobility_in_meter_s == 0.0 or t_us == 0:
@@ -674,7 +911,10 @@ class env:
 
     @classmethod
     def bandwidth_txpr_to_noise_dBm(cls, B):
-        return env.NOISE_FLOOR_DBM
+        bandwidth_hz = np.asarray(B, dtype=float)
+        if np.any(bandwidth_hz <= 0):
+            raise ValueError("bandwidth must be positive.")
+        return -174.0 + 10.0 * np.log10(bandwidth_hz) + cls.NOISEFIGURE
 
     @staticmethod
     def fre_dis_to_loss_dB(fre_Hz, dis):
@@ -683,11 +923,11 @@ class env:
 
     @staticmethod
     def db_to_dec(snr_db):
-        return 10.0 ** (snr_db / 10.0)
+        return np.power(10.0, np.asarray(snr_db, dtype=float) / 10.0)
 
     @staticmethod
     def dec_to_db(snr_dec):
-        return 10.0 * math.log10(snr_dec)
+        return 10.0 * np.log10(np.asarray(snr_dec, dtype=float))
 
     @staticmethod
     def polyanskiy_model(snr_dec, L, B, T):
@@ -702,30 +942,48 @@ class env:
 
     @staticmethod
     def bisection_method(L, B, T, max_err=1e-5, a=-5.0, b=30.0, tol=0.1):
-        if env.err(a, L, B, T, max_err) * env.err(b, L, B, T, max_err) >= 0:
+        fa = env.err(a, L, B, T, max_err)
+        fb = env.err(b, L, B, T, max_err)
+        while fa < 0 and a > -120.0:
+            a -= 5.0
+            fa = env.err(a, L, B, T, max_err)
+        while fb > 0 and b < 120.0:
+            b += 5.0
+            fb = env.err(b, L, B, T, max_err)
+        if fa * fb >= 0:
             print("Bisection method fails.")
-            return None
+            return a if fa < 0 else b
 
-        while (env.err(a, L, B, T, max_err) - env.err(b, L, B, T, max_err)) > tol:
+        while (fa - fb) > tol:
             midpoint = (a + b) / 2
-            if env.err(midpoint, L, B, T, max_err) == 0:
+            fm = env.err(midpoint, L, B, T, max_err)
+            if fm == 0:
                 return midpoint
-            if env.err(a, L, B, T, max_err) * env.err(midpoint, L, B, T, max_err) < 0:
+            if fa * fm < 0:
                 b = midpoint
+                fb = fm
             else:
                 a = midpoint
+                fa = fm
         return (a + b) / 2
 
     def _compute_txp(self):
         dis = np.linalg.norm(self.pair_tx_locs - self.pair_rx_locs, axis=1)
         gain = -env.fre_dis_to_loss_dB(self.fre_Hz, dis)
-        t = env.dec_to_db(self._compute_min_sinr()) - (gain - self.bandwidth_txpr_to_noise_dBm(self.bandwidth))
+        noise_dbm = np.asarray(self.bandwidth_txpr_to_noise_dBm(self.pair_bandwidth_hz), dtype=float)
+        if noise_dbm.ndim == 0:
+            noise_dbm = np.full(self.n_pair, float(noise_dbm), dtype=float)
+        t = env.dec_to_db(self._compute_min_sinr()) - (gain - noise_dbm)
         return np.reshape(t + env.dec_to_db(self.txp_offset), (self.n_pair, -1))
 
     def _compute_state(self):
         dis = scipy.spatial.distance.cdist(self.pair_tx_locs, self.pair_rx_locs)
         self.loss = env.fre_dis_to_loss_dB(self.fre_Hz, dis)
-        rxpr_db = self._compute_txp() - self.loss - self.bandwidth_txpr_to_noise_dBm(self.bandwidth)
+        noise_dbm = np.asarray(self.bandwidth_txpr_to_noise_dBm(self.pair_bandwidth_hz), dtype=float)
+        if noise_dbm.ndim == 0:
+            noise_dbm = np.full(self.n_pair, float(noise_dbm), dtype=float)
+        noise_dbm = noise_dbm.reshape(self.n_pair, -1)
+        rxpr_db = self._compute_txp() - self.loss - noise_dbm
         rxpr_hi = 10 ** (rxpr_db / 10.0)
         rxpr_hi[rxpr_hi < self.min_s_n_ratio] = 0.0
         return scipy.sparse.csr_matrix(rxpr_hi)
@@ -733,7 +991,11 @@ class env:
     def _compute_state_real(self):
         dis = scipy.spatial.distance.cdist(self.pair_tx_locs, self.pair_rx_locs)
         self.loss = env.fre_dis_to_loss_dB(self.fre_Hz, dis)
-        rxpr_db = self._compute_txp() - self.loss - self.bandwidth_txpr_to_noise_dBm(self.bandwidth)
+        noise_dbm = np.asarray(self.bandwidth_txpr_to_noise_dBm(self.pair_bandwidth_hz), dtype=float)
+        if noise_dbm.ndim == 0:
+            noise_dbm = np.full(self.n_pair, float(noise_dbm), dtype=float)
+        noise_dbm = noise_dbm.reshape(self.n_pair, -1)
+        rxpr_db = self._compute_txp() - self.loss - noise_dbm
         rxpr_hi = 10 ** (rxpr_db / 10.0)
         return scipy.sparse.csr_matrix(rxpr_hi)
 
@@ -776,7 +1038,12 @@ class env:
         sinr = self.evaluate_sinr(z, Z)
         bler = np.zeros(sinr.size)
         for k in range(sinr.size):
-            bler[k] = env.polyanskiy_model(sinr[k], self.packet_bit, self.bandwidth, self.slot_time)
+            bler[k] = env.polyanskiy_model(
+                sinr[k],
+                self.user_packet_bits[k],
+                self.user_bandwidth_hz[k],
+                self.slot_time,
+            )
         return bler
 
     def evaluate_weighted_bler(self, z, Z, weights=None):
