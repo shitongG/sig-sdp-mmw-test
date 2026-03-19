@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch, Rectangle
 
 
-RADIO_COLORS = {"wifi": "#0B6E4F", "ble": "#C84C09", "ble_overlap": "#D7263D"}
+RADIO_COLORS = {"wifi": "#0B6E4F", "ble": "#C84C09", "ble_overlap": "#D7263D", "ble_adv_idle": "#D9D9D9"}
 
 
 def build_ble_event_spans(rows):
@@ -34,30 +34,32 @@ def build_ble_event_spans(rows):
 def group_slot_rows_into_event_spans(rows):
     parsed = []
     for row in rows:
+        slot_width = int(row["slot_width"]) if row.get("slot_width") not in (None, "", "NA") else 1
         parsed.append(
             {
                 "pair_id": int(row["pair_id"]),
                 "radio": row["radio"],
                 "channel": int(row["channel"]),
                 "slot": int(row["slot"]),
+                "slot_width": slot_width,
                 "freq_low_mhz": float(row["freq_low_mhz"]),
                 "freq_high_mhz": float(row["freq_high_mhz"]),
                 "label": row["label"],
             }
         )
-    parsed.sort(key=lambda r: (r["pair_id"], r["channel"], r["freq_low_mhz"], r["freq_high_mhz"], r["slot"]))
+    parsed.sort(key=lambda r: (r["pair_id"], r["channel"], r["freq_low_mhz"], r["freq_high_mhz"], r["slot"], r["slot_width"]))
     spans = []
     current = None
     for row in parsed:
         key = (row["pair_id"], row["radio"], row["channel"], row["freq_low_mhz"], row["freq_high_mhz"], row["label"])
         if current is None:
-            current = {**row, "slot_start": row["slot"], "slot_end": row["slot"] + 1, "_key": key}
+            current = {**row, "slot_start": row["slot"], "slot_end": row["slot"] + row["slot_width"], "_key": key}
             continue
-        if current["_key"] == key and row["slot"] == current["slot_end"]:
+        if current["_key"] == key and row["slot"] == current["slot_end"] and row["slot_width"] == 1:
             current["slot_end"] += 1
             continue
         spans.append({k: v for k, v in current.items() if k not in {"slot", "_key"}})
-        current = {**row, "slot_start": row["slot"], "slot_end": row["slot"] + 1, "_key": key}
+        current = {**row, "slot_start": row["slot"], "slot_end": row["slot"] + row["slot_width"], "_key": key}
     if current is not None:
         spans.append({k: v for k, v in current.items() if k not in {"slot", "_key"}})
     return spans
@@ -100,7 +102,7 @@ def render_event_grid_plot(event_spans, output_path, macrocycle_slots, slot_wind
             facecolor=RADIO_COLORS.get(span["radio"], "#4C4C4C"),
             edgecolor="none",
             linewidth=0.0,
-            alpha=0.75,
+            alpha=0.35 if span["radio"] == "ble_adv_idle" else 0.75,
         )
         ax.add_patch(rect)
 
@@ -125,6 +127,7 @@ def render_event_grid_plot(event_spans, output_path, macrocycle_slots, slot_wind
             Patch(facecolor=RADIO_COLORS["wifi"], edgecolor="none", alpha=0.75, label="WiFi"),
             Patch(facecolor=RADIO_COLORS["ble"], edgecolor="none", alpha=0.75, label="BLE"),
             Patch(facecolor=RADIO_COLORS["ble_overlap"], edgecolor="none", alpha=0.75, label="BLE overlap"),
+            Patch(facecolor=RADIO_COLORS["ble_adv_idle"], edgecolor="none", alpha=0.35, label="BLE adv idle"),
         ],
         loc="upper right",
         frameon=True,

@@ -1,0 +1,47 @@
+{
+  "_comment_pair_generation_mode": "pair 生成模式：manual 表示直接读取 pair_parameters，random 表示沿用随机生成",
+  "pair_generation_mode": "manual",
+  "_comment_cell_size": "办公室网格边长；manual 模式下仍用于定义办公室总数。这里设为 1，便于快速演示 macrocycle_hopping_sdp 后端。",
+  "cell_size": 1,
+  "_comment_seed": "随机种子；manual 模式下主要用于其余随机过程的可复现性",
+  "seed": 123,
+  "_comment_mmw_nit": "MMW 迭代次数",
+  "mmw_nit": 5,
+  "_comment_mmw_eta": "MMW 步长 eta",
+  "mmw_eta": 0.05,
+  "_comment_output_dir": "输出目录；相对路径相对配置文件所在目录解析",
+  "output_dir": "macrocycle_output",
+  "_comment_ble_channel_mode": "BLE 信道模式：macrocycle_hopping_sdp 后端会使用 per_ce 跳频轨迹",
+  "ble_channel_mode": "per_ce",
+  "_comment_ble_schedule_backend": "BLE 调度后端：legacy 保持现有方案，macrocycle_hopping_sdp 接入 BLE-only 宏周期跳频 SDP",
+  "ble_schedule_backend": "macrocycle_hopping_sdp",
+  "_comment_pair_parameters": "逐 pair 输入参数；此示例包含 2 对用户对，便于快速验证新后端",
+  "pair_parameters": [
+    {
+      "pair_id": 0,
+      "office_id": 0,
+      "radio": "ble",
+      "channel": 8,
+      "priority": 1.0,
+      "release_time_slot": 0,
+      "deadline_slot": 63,
+      "start_time_slot": 0,
+      "ble_anchor_slot": 0,
+      "ble_ci_slots": 16,
+      "ble_ce_slots": 2
+    },
+    {
+      "pair_id": 1,
+      "office_id": 0,
+      "radio": "wifi",
+      "channel": 0,
+      "priority": 1.1,
+      "release_time_slot": 0,
+      "deadline_slot": 63,
+      "start_time_slot": 6,
+      "wifi_anchor_slot": 6,
+      "wifi_period_slots": 16,
+      "wifi_tx_slots": 3
+    }
+  ]
+}

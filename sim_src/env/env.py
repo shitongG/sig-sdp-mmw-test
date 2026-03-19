@@ -4,6 +4,51 @@ import numpy as np
 import scipy
 
 
+def sample_ble_pair_timing(
+    *,
+    rand_gen,
+    slot_time: float,
+    ble_ci_quanta_candidates: np.ndarray,
+    ble_ce_required_s: float,
+    ble_ce_max_s: float,
+    start_time_slot: int,
+):
+    ci_base = 1.25e-3
+    ci_quanta = int(rand_gen.choice(ble_ci_quanta_candidates))
+    ci_s = ci_quanta * ci_base
+    ci_slots = int(round(ci_s / slot_time))
+    if abs(ci_s / slot_time - ci_slots) > 1e-9:
+        raise ValueError("Sampled BLE CI is not an integer multiple of slot_time.")
+
+    ce_required = float(ble_ce_required_s)
+    feasible = ce_required <= float(ble_ce_max_s)
+    ce_slots = 0
+    if feasible:
+        ce_high = min(float(ble_ce_max_s), ci_s)
+        if ce_required > ce_high:
+            feasible = False
+        else:
+            ce_low_slots = int(math.ceil(ce_required / slot_time))
+            ce_high_slots = int(math.floor(ce_high / slot_time))
+            if ce_low_slots > ce_high_slots:
+                feasible = False
+            else:
+                ce_slots = int(rand_gen.integers(low=ce_low_slots, high=ce_high_slots + 1))
+
+    anchor_slot = int(start_time_slot)
+    if ci_slots > 0:
+        high = int(start_time_slot + ci_slots - ce_slots)
+        anchor_slot = int(rand_gen.integers(low=int(start_time_slot), high=high + 1))
+
+    return {
+        "ci_slots": ci_slots,
+        "ce_slots": ce_slots,
+        "anchor_slot": anchor_slot,
+        "ce_required_s": ce_required,
+        "feasible": bool(feasible),
+    }
+
+
 class env:
     C = 299792458.0
     PI = 3.14159265358979323846
@@ -65,6 +110,7 @@ class env:
         6) ble_ce_min_s/ble_ce_max_s: BLE 连接事件时长范围
         7) ble_payload_bits/ble_phy_rate_bps: BLE 负载与速率，用于计算 CE 所需时长
         """
+        self.seed = seed
         self.rand_gen_loc = np.random.default_rng(seed)
         self.rand_gen_fad = np.random.default_rng(seed)
         self.rand_gen_mob = np.random.default_rng(seed)
@@ -135,6 +181,9 @@ class env:
             raise ValueError("ble_channel_mode must be 'single' or 'per_ce'.")
         self.ble_channel_mode = ble_channel_mode
         self.wifi_reuse_channels = np.array(wifi_reuse_channels, dtype=int)
+        self.wifi_fixed_channel_indices = np.array([0, 5, 10], dtype=int)
+        self.ble_data_channel_indices = np.arange(37, dtype=int)
+        self.ble_advertising_center_freq_mhz = [2402.0, 2426.0, 2480.0]
         self.wifi_tx_min_s = float(wifi_tx_min_s)
         self.wifi_tx_max_s = float(wifi_tx_max_s)
         self.wifi_period_exp_min = int(wifi_period_exp_min)
@@ -145,6 +194,8 @@ class env:
         self.device_radio_type = None
         self.device_radio_channel = None
         self.device_start_time_slot = None
+        self.device_release_time_slot = None
+        self.device_deadline_slot = None
         self.device_wifi_anchor_slot = None
         self.device_wifi_period_slots = None
         self.device_wifi_tx_slots = None
@@ -156,9 +207,13 @@ class env:
         self.user_wifi_tx_slots = None
         self.user_ble_anchor_slot = None
         self.user_start_time_slot = None
+        self.user_release_time_slot = None
+        self.user_deadline_slot = None
         self.pair_radio_type = None
         self.pair_channel = None
         self.pair_start_time_slot = None
+        self.pair_release_time_slot = None
+        self.pair_deadline_slot = None
         self.pair_wifi_anchor_slot = None
         self.pair_wifi_period_slots = None
         self.pair_wifi_tx_slots = None
@@ -197,6 +252,7 @@ class env:
         self.pair_ble_ce_required_s = None
         self.pair_ble_ce_feasible = None
         self.pair_ble_ce_channels = None
+        self._manual_ble_ce_channel_pairs = None
 
         self.min_sinr = None
         self.loss = None
@@ -216,12 +272,10 @@ class env:
 
     def _config_ap_radio_channel(self):
         # 中文：为每个 AP 固定分配 WiFi/BLE 信道。WiFi 默认复用 1/6/11（索引 0/5/10）。
-        if self.wifi_reuse_channels.size == 0:
-            raise ValueError("wifi_reuse_channels must not be empty.")
-        if np.any(self.wifi_reuse_channels < 0) or np.any(self.wifi_reuse_channels >= self.wifi_channel_count):
-            raise ValueError("wifi_reuse_channels must be within [0, wifi_channel_count).")
+        if np.any(self.wifi_fixed_channel_indices < 0) or np.any(self.wifi_fixed_channel_indices >= self.wifi_channel_count):
+            raise ValueError("wifi_fixed_channel_indices must be within [0, wifi_channel_count).")
         office_ids = np.arange(self.n_office)
-        self.office_wifi_channel = self.wifi_reuse_channels[office_ids % self.wifi_reuse_channels.size]
+        self.office_wifi_channel = self.wifi_fixed_channel_indices[office_ids % self.wifi_fixed_channel_indices.size]
         self.office_ble_channel = office_ids % self.ble_channel_count
         self.ap_wifi_channel = self.office_wifi_channel
         self.ap_ble_channel = self.office_ble_channel
@@ -268,6 +322,8 @@ class env:
         self.pair_office_id = self.rand_gen_loc.integers(low=0, high=self.n_office, size=self.n_pair)
         self.pair_channel = np.zeros(self.n_pair, dtype=int)
         self.pair_start_time_slot = np.zeros(self.n_pair, dtype=int)
+        self.pair_release_time_slot = np.zeros(self.n_pair, dtype=int)
+        self.pair_deadline_slot = np.zeros(self.n_pair, dtype=int)
         self.pair_wifi_anchor_slot = np.zeros(self.n_pair, dtype=int)
         self.pair_wifi_period_slots = np.zeros(self.n_pair, dtype=int)
         self.pair_wifi_tx_slots = np.zeros(self.n_pair, dtype=int)
@@ -277,6 +333,7 @@ class env:
         self.pair_ble_ce_required_s = np.zeros(self.n_pair, dtype=float)
         self.pair_ble_ce_feasible = np.zeros(self.n_pair, dtype=bool)
         self.pair_ble_ce_channels = {} if self.ble_channel_mode == "per_ce" else None
+        self._manual_ble_ce_channel_pairs = set() if self.ble_channel_mode == "per_ce" else None
         self.pair_tx_locs = np.zeros((self.n_pair, 2), dtype=float)
         self.pair_rx_locs = np.zeros((self.n_pair, 2), dtype=float)
 
@@ -289,17 +346,23 @@ class env:
         ble_mask = self.pair_radio_type == self.RADIO_BLE
 
         if np.any(wifi_mask):
-            self.pair_channel[wifi_mask] = self.rand_gen_loc.integers(
-                low=0, high=self.wifi_channel_count, size=int(np.sum(wifi_mask))
+            self.pair_channel[wifi_mask] = self.rand_gen_loc.choice(
+                self.wifi_fixed_channel_indices,
+                size=int(np.sum(wifi_mask)),
             )
             wifi_pairs = np.where(wifi_mask)[0]
             self._config_wifi_pair_timing(wifi_pairs)
         if np.any(ble_mask):
-            self.pair_channel[ble_mask] = self.rand_gen_loc.integers(
-                low=0, high=self.ble_channel_count, size=int(np.sum(ble_mask))
+            self.pair_channel[ble_mask] = self.rand_gen_loc.choice(
+                self.ble_data_channel_indices,
+                size=int(np.sum(ble_mask)),
             )
             ble_pairs = np.where(ble_mask)[0]
             self._config_ble_pair_timing(ble_pairs)
+
+        macrocycle_slots = int(self.compute_macrocycle_slots())
+        self.pair_release_time_slot = np.zeros(self.n_pair, dtype=int)
+        self.pair_deadline_slot = np.full(self.n_pair, max(macrocycle_slots - 1, 0), dtype=int)
 
         self.pair_priority = self._sample_priority(self.n_pair)
         self.device_priority = self.pair_priority
@@ -322,6 +385,8 @@ class env:
         self.device_radio_type = self.pair_radio_type
         self.device_radio_channel = self.pair_channel
         self.device_start_time_slot = self.pair_start_time_slot
+        self.device_release_time_slot = self.pair_release_time_slot
+        self.device_deadline_slot = self.pair_deadline_slot
         self.device_wifi_anchor_slot = self.pair_wifi_anchor_slot
         self.device_wifi_period_slots = self.pair_wifi_period_slots
         self.device_wifi_tx_slots = self.pair_wifi_tx_slots
@@ -336,6 +401,8 @@ class env:
         self.user_radio_type = self.pair_radio_type
         self.user_radio_channel = self.pair_channel
         self.user_start_time_slot = self.pair_start_time_slot
+        self.user_release_time_slot = self.pair_release_time_slot
+        self.user_deadline_slot = self.pair_deadline_slot
         self.user_wifi_anchor_slot = self.pair_wifi_anchor_slot
         self.user_wifi_period_slots = self.pair_wifi_period_slots
         self.user_wifi_tx_slots = self.pair_wifi_tx_slots
@@ -497,12 +564,30 @@ class env:
 
         macrocycle_slots = int(self.compute_macrocycle_slots())
         event_count = max(1, macrocycle_slots // ci_slots) if macrocycle_slots > 0 else 1
-        self.pair_ble_ce_channels[pair_id] = self.rand_gen_loc.integers(
-            low=0,
-            high=self.ble_channel_count,
-            size=event_count,
-            dtype=int,
-        )
+        self.pair_ble_ce_channels[pair_id] = self.rand_gen_loc.choice(self.ble_data_channel_indices, size=event_count)
+
+    def set_ble_ce_channel_map(self, channel_map):
+        if self.ble_channel_mode != "per_ce":
+            return
+        if self.pair_ble_ce_channels is None:
+            self.pair_ble_ce_channels = {}
+        if self._manual_ble_ce_channel_pairs is None:
+            self._manual_ble_ce_channel_pairs = set()
+
+        for pair_id, channels in channel_map.items():
+            pair_id = int(pair_id)
+            if self.pair_radio_type[pair_id] != self.RADIO_BLE:
+                raise ValueError("BLE CE channel map can only be set for BLE pairs.")
+            ci_slots = int(self.pair_ble_ci_slots[pair_id])
+            macrocycle_slots = int(self.compute_macrocycle_slots())
+            event_count = max(1, macrocycle_slots // ci_slots) if macrocycle_slots > 0 else 1
+            channel_arr = np.asarray(channels, dtype=int).ravel()
+            if channel_arr.size != event_count:
+                raise ValueError("BLE CE channel map length must match event count.")
+            if np.any(channel_arr < 0) or np.any(channel_arr >= self.ble_channel_count):
+                raise ValueError("BLE CE channel map contains invalid channel indices.")
+            self.pair_ble_ce_channels[pair_id] = channel_arr.copy()
+            self._manual_ble_ce_channel_pairs.add(pair_id)
 
     def build_slot_occupancy_mask(self, Z):
         # 中文：构建“用户-时隙占用窗口掩码”。
@@ -599,13 +684,29 @@ class env:
             z += period_slots
         return occ
 
+    def get_wifi_channel_center_mhz(self, wifi_idx):
+        wifi_idx = int(wifi_idx)
+        if wifi_idx in {1, 6, 11}:
+            wifi_idx -= 1
+        if wifi_idx not in {0, 5, 10}:
+            raise ValueError("WiFi channel index must be one of {0, 1, 5, 6, 10, 11}.")
+        return 2412.0 + 5.0 * float(wifi_idx)
+
+    def get_ble_data_channel_center_mhz(self, ble_idx):
+        ble_idx = int(ble_idx)
+        if ble_idx < 0 or ble_idx >= 37:
+            raise ValueError("BLE data channel index must be in [0, 36].")
+        if ble_idx <= 10:
+            return 2404.0 + 2.0 * float(ble_idx)
+        return 2428.0 + 2.0 * float(ble_idx - 11)
+
     def _get_wifi_channel_range_hz(self, wifi_idx):
-        center = (2412.0 + 5.0 * float(wifi_idx)) * 1e6
+        center = self.get_wifi_channel_center_mhz(wifi_idx) * 1e6
         half_bw = self.wifi_channel_bandwidth_hz / 2.0
         return center - half_bw, center + half_bw
 
     def _get_ble_channel_range_hz(self, ble_idx):
-        center = (2402.0 + 2.0 * float(ble_idx)) * 1e6
+        center = self.get_ble_data_channel_center_mhz(ble_idx) * 1e6
         half_bw = self.ble_channel_bandwidth_hz / 2.0
         return center - half_bw, center + half_bw
 
@@ -853,25 +954,20 @@ class env:
             return
         if self.ble_channel_mode == "per_ce":
             for pair_id in ble_ids:
+                if self._manual_ble_ce_channel_pairs is not None and int(pair_id) in self._manual_ble_ce_channel_pairs:
+                    continue
                 prev = self.pair_ble_ce_channels.get(int(pair_id), np.zeros(0, dtype=int))
                 if prev.size == 0:
                     self._assign_ble_ce_channels(int(pair_id))
                     continue
-                new_channels = self.rand_gen_loc.integers(
-                    low=0,
-                    high=self.ble_channel_count,
-                    size=prev.size,
-                    dtype=int,
-                )
-                if self.ble_channel_count > 1 and np.array_equal(new_channels, prev):
-                    new_channels = (new_channels + 1) % self.ble_channel_count
+                new_channels = self.rand_gen_loc.choice(self.ble_data_channel_indices, size=prev.size)
+                if self.ble_data_channel_indices.size > 1 and np.array_equal(new_channels, prev):
+                    new_channels = self.ble_data_channel_indices[
+                        (np.searchsorted(self.ble_data_channel_indices, new_channels) + 1) % self.ble_data_channel_indices.size
+                    ]
                 self.pair_ble_ce_channels[int(pair_id)] = new_channels
             return
-        self.pair_channel[ble_ids] = self.rand_gen_loc.integers(
-            low=0,
-            high=self.ble_channel_count,
-            size=int(ble_ids.size),
-        )
+        self.pair_channel[ble_ids] = self.rand_gen_loc.choice(self.ble_data_channel_indices, size=int(ble_ids.size))
         self.device_radio_channel = self.pair_channel
         self.user_radio_channel = self.pair_channel
 

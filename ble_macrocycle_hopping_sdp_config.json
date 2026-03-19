@@ -1,0 +1,1715 @@
+{
+  "_comment_instance": "50 对 BLE pair 的可直接调度配置；为控制 SDP 规模，每对只保留一个可行 offset。",
+  "_comment_num_channels": "物理信道总数",
+  "num_channels": 37,
+  "_comment_hard_collision_threshold": "硬碰撞阈值，设为 null 表示不启用",
+  "hard_collision_threshold": null,
+  "_comment_plot_title": "输出时频调度图标题",
+  "plot_title": "BLE Event Grid (50 Pairs)",
+  "_comment_output_path": "输出图片路径；相对路径将相对配置文件所在目录解析",
+  "output_path": "ble_macrocycle_hopping_sdp_schedule.png",
+  "_comment_pair_configs": "50 条 BLE 链路的时序参数",
+  "pair_configs": [
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 0,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 0,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 12,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 1,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 3,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 15,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 2,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 6,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 15,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 3,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 3,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 9,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 19,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 5,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 3
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 4,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 13,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 25,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 5,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 16,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 28,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 6,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 19,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 28,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 3,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 7,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 22,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 32,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 5,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 3
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 8,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 2,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 14,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 9,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 5,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 17,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 10,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 8,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 17,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 3,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 11,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 11,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 21,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 5,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 3
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 12,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 15,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 27,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 13,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 18,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 30,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 14,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 21,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 30,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 3,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 15,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 0,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 10,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 5,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 3
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 16,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 4,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 16,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 17,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 7,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 19,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 18,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 10,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 19,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 3,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 19,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 13,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 23,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 5,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 3
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 20,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 17,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 29,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 21,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 20,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 32,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 22,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 23,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 32,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 3,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 23,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 2,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 12,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 5,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 3
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 24,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 6,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 18,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 25,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 9,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 21,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 26,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 12,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 21,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 3,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 27,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 15,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 25,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 5,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 3
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 28,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 19,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 31,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 29,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 22,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 34,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 30,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 1,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 10,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 3,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 31,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 4,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 14,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 5,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 3
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 32,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 8,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 20,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 33,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 11,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 23,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 34,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 14,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 23,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 3,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 35,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 17,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 27,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 5,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 3
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 36,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 21,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 33,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 37,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 0,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 12,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 38,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 3,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 12,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 3,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 39,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 6,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 16,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 5,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 3
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 40,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 10,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 22,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 41,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 13,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 25,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 42,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 16,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 25,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 3,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 43,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 19,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 29,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 5,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 3
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 44,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 23,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 35,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 45,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 2,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 14,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 46,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 5,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 14,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 3,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 47,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 8,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 18,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 5,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 3
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 48,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 12,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 24,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    },
+    {
+      "_comment_pair_id": "BLE 链路编号",
+      "pair_id": 49,
+      "_comment_release_time": "最早允许开始时间；当前配置令其等于唯一可行 offset",
+      "release_time": 15,
+      "_comment_deadline": "最晚完成时间；当前配置令其只对应一个可行 offset",
+      "deadline": 27,
+      "_comment_connect_interval": "连接间隔",
+      "connect_interval": 4,
+      "_comment_event_duration": "单个连接事件持续时间",
+      "event_duration": 1,
+      "_comment_num_events": "宏周期内连接事件数",
+      "num_events": 4
+    }
+  ],
+  "_comment_pattern_dict": "每条链路的候选跳频模式",
+  "pattern_dict": {
+    "0": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 1,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 5
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 8,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 10
+      }
+    ],
+    "1": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 5,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 5
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 14,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 12
+      }
+    ],
+    "2": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 9,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 7
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 16,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 6
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 2,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 23,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 11
+      }
+    ],
+    "3": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 13,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 5
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 30,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 8
+      }
+    ],
+    "4": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 18,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 7
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 25,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 12
+      }
+    ],
+    "5": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 22,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 7
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 31,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 14
+      }
+    ],
+    "6": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 26,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 9
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 33,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 8
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 2,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 3,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 13
+      }
+    ],
+    "7": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 30,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 7
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 10,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 10
+      }
+    ],
+    "8": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 35,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 9
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 5,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 14
+      }
+    ],
+    "9": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 2,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 9
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 11,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 16
+      }
+    ],
+    "10": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 6,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 11
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 13,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 10
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 2,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 20,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 15
+      }
+    ],
+    "11": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 10,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 9
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 27,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 12
+      }
+    ],
+    "12": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 15,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 11
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 22,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 16
+      }
+    ],
+    "13": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 19,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 11
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 28,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 18
+      }
+    ],
+    "14": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 23,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 13
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 30,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 12
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 2,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 0,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 17
+      }
+    ],
+    "15": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 27,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 11
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 7,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 14
+      }
+    ],
+    "16": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 32,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 13
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 2,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 18
+      }
+    ],
+    "17": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 36,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 13
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 8,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 20
+      }
+    ],
+    "18": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 3,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 15
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 10,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 14
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 2,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 17,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 19
+      }
+    ],
+    "19": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 7,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 13
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 24,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 16
+      }
+    ],
+    "20": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 12,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 15
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 19,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 20
+      }
+    ],
+    "21": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 16,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 15
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 25,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 22
+      }
+    ],
+    "22": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 20,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 17
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 27,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 16
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 2,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 34,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 21
+      }
+    ],
+    "23": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 24,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 15
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 4,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 18
+      }
+    ],
+    "24": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 29,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 17
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 36,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 22
+      }
+    ],
+    "25": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 33,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 17
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 5,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 24
+      }
+    ],
+    "26": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 0,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 19
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 7,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 18
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 2,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 14,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 23
+      }
+    ],
+    "27": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 4,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 17
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 21,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 20
+      }
+    ],
+    "28": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 9,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 19
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 16,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 24
+      }
+    ],
+    "29": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 13,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 19
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 22,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 26
+      }
+    ],
+    "30": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 17,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 21
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 24,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 20
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 2,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 31,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 25
+      }
+    ],
+    "31": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 21,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 19
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 1,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 22
+      }
+    ],
+    "32": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 26,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 21
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 33,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 26
+      }
+    ],
+    "33": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 30,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 21
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 2,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 28
+      }
+    ],
+    "34": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 34,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 23
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 4,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 22
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 2,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 11,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 27
+      }
+    ],
+    "35": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 1,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 21
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 18,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 24
+      }
+    ],
+    "36": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 6,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 23
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 13,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 28
+      }
+    ],
+    "37": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 10,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 23
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 19,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 30
+      }
+    ],
+    "38": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 14,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 25
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 21,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 24
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 2,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 28,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 29
+      }
+    ],
+    "39": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 18,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 23
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 35,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 26
+      }
+    ],
+    "40": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 23,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 25
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 30,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 30
+      }
+    ],
+    "41": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 27,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 25
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 36,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 32
+      }
+    ],
+    "42": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 31,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 27
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 1,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 26
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 2,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 8,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 31
+      }
+    ],
+    "43": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 35,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 25
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 15,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 28
+      }
+    ],
+    "44": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 3,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 27
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 10,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 32
+      }
+    ],
+    "45": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 7,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 27
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 16,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 34
+      }
+    ],
+    "46": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 11,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 29
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 18,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 28
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 2,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 25,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 33
+      }
+    ],
+    "47": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 15,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 27
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 32,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 30
+      }
+    ],
+    "48": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 20,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 29
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 27,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 34
+      }
+    ],
+    "49": [
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 0,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 24,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 29
+      },
+      {
+        "_comment_pattern_id": "候选跳频模式编号",
+        "pattern_id": 1,
+        "_comment_start_channel": "跳频起始信道",
+        "start_channel": 33,
+        "_comment_hop_increment": "跳频步长",
+        "hop_increment": 36
+      }
+    ]
+  },
+  "_comment_pair_weight": "链路对之间的碰撞代价权重；空字典表示默认全部按 1.0 处理",
+  "pair_weight": {}
+}
