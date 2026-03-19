@@ -222,7 +222,8 @@ python ble_macrocycle_hopping_sdp.py
 
 用途：
 - 随机生成用户对
-- 默认 BLE backend 为 `legacy`
+- 当前文件默认 BLE backend 为 `macrocycle_hopping_sdp`
+- 这是一个高密度随机实验入口，不是轻量 smoke 配置
 
 ### 4.2 手工用户对配置
 
@@ -260,7 +261,7 @@ python ble_macrocycle_hopping_sdp.py
 
 ## 6. 可以改哪些参数
 
-### 5.1 随机模式
+### 6.1 随机模式
 
 在 `pd_mmw_template_ap_stats_config.json` 或 CLI 里常改：
 
@@ -272,11 +273,13 @@ python ble_macrocycle_hopping_sdp.py
 - `max_slots`
 - `ble_channel_mode`
 - `ble_schedule_backend`
+- `ble_max_offsets_per_pair`
+- `ble_log_candidate_summary`
 - `ble_channel_retries`
 - `wifi_first_ble_scheduling`
 - `output_dir`
 
-### 5.2 manual 模式
+### 6.2 manual 模式
 
 在 `pair_parameters` 里可逐对修改：
 
@@ -305,6 +308,8 @@ python ble_macrocycle_hopping_sdp.py
 - `ble_timing_mode = auto` 时，manual JSON 里的 BLE pair 会按 `seed` 自动生成 `ble_ci_slots` 和 `ble_ce_slots`，并复用环境中的 BLE 时序采样逻辑
 - `ble_timing_mode = auto` 时不需要手写 `ble_ci_slots` 和 `ble_ce_slots`
 - 完全不传 JSON 时，脚本仍保持旧的随机生成模式
+- `ble_max_offsets_per_pair` 可以对每个 BLE pair 的可行 offset 做确定性剪枝，直接减小 `|A|`
+- `ble_log_candidate_summary = true` 时，BLE backend 会在求解前打印每个 pair 的 `offset_count`、`pattern_count` 和全局 `state_count`
 
 ## 7. 当前信道建模
 
@@ -362,6 +367,10 @@ BLE-only SDP 原型会输出：
 
 `ble_macrocycle_hopping_sdp.py` 的 SDP 目标已经改成向量化形式，能减少 CVXPY 在 Python 侧构造和编译目标函数的开销。
 
+同时，主脚本的 BLE backend 现在支持候选状态剪枝：
+- `ble_max_offsets_per_pair` 控制每个 pair 最多保留多少个可行 offset
+- `ble_log_candidate_summary` 用来输出候选空间摘要，帮助定位是哪几个 pair 把 `|A|` 撑大了
+
 这会改善：
 - `Objective contains too many subexpressions` 这类警告对应的编译时间
 - 小到中等规模实例的启动时间
@@ -374,6 +383,20 @@ BLE-only SDP 原型会输出：
 - 每对 BLE 的可行 `offset` 数量
 - 每对 BLE 的 hopping pattern 数量
 - BLE pair 总数
+
+当前代码已经提供两个直接可用的手段：
+- `ble_max_offsets_per_pair`
+  - 对每个 BLE pair 的可行 offset 做可复现剪枝
+  - 剪枝规则是保留首尾，并对中间 offset 做等间距采样
+- `ble_log_candidate_summary`
+  - 在求解前打印候选空间摘要
+  - 能直接看到 `pair_count`、全局 `state_count`，以及每对的 `offset_count/pattern_count/state_count`
+
+因此要明确：
+- 向量化主要解决的是“CVXPY 建模/编译阶段太慢”
+- 它不会把一个本来就很大的 SDP 问题变成小问题
+- 如果你使用 [sim_script/pd_mmw_template_ap_stats_config.json](/data/home/Jie_Wan/mycode/sig-sdp-mmw-test/sim_script/pd_mmw_template_ap_stats_config.json) 这种高密度随机配置，即使没有子表达式告警，求解本身仍可能很慢
+- 现在这份高密度配置已经默认开启 `ble_max_offsets_per_pair` 和 candidate summary 日志，但如果 `state_count` 仍然很大，瓶颈会继续落在 SDP 求解器本身
 
 如果你要控制运行时间，优先收紧：
 - `release_time_slot`
@@ -395,6 +418,21 @@ python sim_script/pd_mmw_template_ap_stats.py \
 这份配置做了两点控制：
 - WiFi 固定在 `1/6/11` 三个信道
 - BLE 的 `release/deadline` 窗口被收紧，避免候选 offset 爆炸
+
+如果你要直接测试高密度随机 BLE：
+
+```bash
+python sim_script/pd_mmw_template_ap_stats.py \
+  --config sim_script/pd_mmw_template_ap_stats_config.json
+```
+
+需要注意：
+- 这份配置会随机生成较多 BLE pair
+- 默认就启用 `macrocycle_hopping_sdp`
+- 默认也启用 `ble_log_candidate_summary`
+- 默认会把 `ble_max_offsets_per_pair` 限制到较小上限，目前是 `2`
+- 现在通常不会再出现 `too many subexpressions` 告警
+- 但仍可能因为候选状态总数大而运行较久，甚至超过几分钟
 
 ## 11. 代码结构
 

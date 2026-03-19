@@ -427,6 +427,23 @@ def test_merge_config_with_defaults_accepts_macrocycle_hopping_ble_backend():
     assert merged["ble_schedule_backend"] == "macrocycle_hopping_sdp"
 
 
+def test_merge_config_with_defaults_accepts_ble_candidate_summary_keys():
+    merged = merge_config_with_defaults(
+        {
+            "ble_max_offsets_per_pair": 4,
+            "ble_log_candidate_summary": True,
+        }
+    )
+
+    assert merged["ble_max_offsets_per_pair"] == 4
+    assert merged["ble_log_candidate_summary"] is True
+
+
+def test_merge_config_with_defaults_rejects_non_positive_ble_max_offsets_per_pair():
+    with pytest.raises(ValueError, match="ble_max_offsets_per_pair"):
+        merge_config_with_defaults({"ble_max_offsets_per_pair": 0})
+
+
 def test_build_ble_hopping_inputs_from_env_derives_pair_configs_and_patterns():
     e = env(cell_size=1, pair_density_per_m2=0.2, seed=1, ble_channel_mode="per_ce")
     ble_ids = np.where(e.pair_radio_type == e.RADIO_BLE)[0]
@@ -496,9 +513,10 @@ def test_apply_ble_schedule_backend_macrocycle_hopping_calls_solver_and_writes_c
 
     monkeypatch.setattr("sim_script.pd_mmw_template_ap_stats.solve_ble_hopping_for_env", fake_solver)
 
-    result = apply_ble_schedule_backend(dummy, {})
+    result = apply_ble_schedule_backend(dummy, {"ble_max_offsets_per_pair": 4, "ble_log_candidate_summary": True})
 
     assert calls["kwargs"]["e"] is dummy
+    assert calls["kwargs"]["config"]["ble_max_offsets_per_pair"] == 4
     assert result is fake_result
     assert dummy.set_ble_ce_channel_map_called_with == fake_result["ce_channel_map"]
 

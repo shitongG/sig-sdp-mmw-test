@@ -31,6 +31,8 @@ DEFAULT_CONFIG = {
     "ble_channel_retries": 0,
     "ble_channel_mode": "single",
     "ble_schedule_backend": "legacy",
+    "ble_max_offsets_per_pair": None,
+    "ble_log_candidate_summary": False,
     "output_dir": "sim_script/output",
     "wifi_first_ble_scheduling": False,
     "pair_generation_mode": "random",
@@ -143,6 +145,13 @@ def merge_config_with_defaults(config: dict):
         raise ValueError("ble_channel_mode must be 'single' or 'per_ce'.")
     if merged["ble_schedule_backend"] not in {"legacy", "macrocycle_hopping_sdp"}:
         raise ValueError("ble_schedule_backend must be 'legacy' or 'macrocycle_hopping_sdp'.")
+    ble_max_offsets_per_pair = merged["ble_max_offsets_per_pair"]
+    if ble_max_offsets_per_pair is not None and int(ble_max_offsets_per_pair) < 1:
+        raise ValueError("ble_max_offsets_per_pair must be None or a positive integer.")
+    merged["ble_max_offsets_per_pair"] = (
+        None if ble_max_offsets_per_pair is None else int(ble_max_offsets_per_pair)
+    )
+    merged["ble_log_candidate_summary"] = bool(merged["ble_log_candidate_summary"])
     if merged["pair_generation_mode"] not in {"random", "manual"}:
         raise ValueError("pair_generation_mode must be 'random' or 'manual'.")
     if merged["pair_generation_mode"] == "manual":
@@ -203,9 +212,10 @@ def build_ble_hopping_inputs_from_env(e: env):
     return pair_configs, cfg_dict, pattern_dict, num_channels
 
 
-def solve_ble_hopping_for_env(e: env):
+def solve_ble_hopping_for_env(e: env, config: dict | None = None):
     ble_hopping = _load_local_ble_hopping_module()
     build_candidate_states = ble_hopping.build_candidate_states
+    print_candidate_summary = ble_hopping.print_candidate_summary
     solve_ble_hopping_schedule = ble_hopping.solve_ble_hopping_schedule
 
     pair_configs, cfg_dict, pattern_dict, num_channels = build_ble_hopping_inputs_from_env(e)
@@ -221,7 +231,18 @@ def solve_ble_hopping_for_env(e: env):
         }
 
     pair_ids = [cfg.pair_id for cfg in pair_configs]
-    states, _, A_k = build_candidate_states(pair_configs, pattern_dict)
+    max_offsets_per_pair = None if config is None else config.get("ble_max_offsets_per_pair")
+    if config is not None and config.get("ble_log_candidate_summary", False):
+        print_candidate_summary(
+            pair_configs=pair_configs,
+            pattern_dict=pattern_dict,
+            max_offsets_per_pair=max_offsets_per_pair,
+        )
+    states, _, A_k = build_candidate_states(
+        pair_configs,
+        pattern_dict,
+        max_offsets_per_pair=max_offsets_per_pair,
+    )
     return solve_ble_hopping_schedule(
         pair_configs=pair_configs,
         cfg_dict=cfg_dict,
@@ -249,7 +270,7 @@ def apply_ble_schedule_backend(e: env, config: dict):
         if getattr(e, "_manual_ble_ce_channel_pairs", None) is None:
             e._manual_ble_ce_channel_pairs = set()
 
-    result = solve_ble_hopping_for_env(e=e)
+    result = solve_ble_hopping_for_env(e=e, config=config)
     if result.get("ce_channel_map") and hasattr(e, "set_ble_ce_channel_map"):
         e.set_ble_ce_channel_map(result["ce_channel_map"])
     return result
@@ -1423,6 +1444,18 @@ def parse_args():
         help="BLE 调度后端：legacy 保持现有方案，macrocycle_hopping_sdp 接入 BLE-only 宏周期跳频 SDP。",
     )
     parser.add_argument(
+        "--ble-max-offsets-per-pair",
+        type=int,
+        default=None,
+        help="BLE 候选状态剪枝上限；每个 pair 最多保留多少个可行 offset。",
+    )
+    parser.add_argument(
+        "--ble-log-candidate-summary",
+        action="store_true",
+        default=None,
+        help="在 BLE backend 求解前打印候选空间摘要（state_count / offset_count / pattern_count）。",
+    )
+    parser.add_argument(
         "--output-dir",
         type=str,
         default=None,
@@ -1454,7 +1487,7 @@ if __name__ == "__main__":
         cell_size=config["cell_size"],
         pair_density_per_m2=pair_density,
         seed=int(time.time()) if config["seed"] is None else config["seed"],
-        radio_prob=(0.2, 0.8),
+        radio_prob=(0.1, 0.9),
         slot_time=1.25e-3,
         wifi_tx_min_s=5e-3,
         wifi_tx_max_s=10e-3,

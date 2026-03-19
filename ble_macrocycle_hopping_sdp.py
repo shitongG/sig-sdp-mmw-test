@@ -91,6 +91,38 @@ def compute_feasible_offsets(cfg: PairConfig) -> List[int]:
     return list(range(cfg.release_time, latest_start + 1))
 
 
+def prune_feasible_offsets(offsets: List[int], max_offsets: Optional[int]) -> List[int]:
+    """Deterministically down-sample feasible offsets while keeping edges."""
+    if max_offsets is None or max_offsets <= 0 or len(offsets) <= max_offsets:
+        return list(offsets)
+    if max_offsets == 1:
+        return [offsets[0]]
+    if max_offsets == 2:
+        return [offsets[0], offsets[-1]]
+
+    raw_idx = np.linspace(0, len(offsets) - 1, num=max_offsets)
+    chosen: List[int] = []
+    seen = set()
+    for idx in np.rint(raw_idx).astype(int):
+        idx = int(max(0, min(len(offsets) - 1, idx)))
+        if idx in seen:
+            continue
+        seen.add(idx)
+        chosen.append(idx)
+
+    if len(chosen) < max_offsets:
+        for idx in range(len(offsets)):
+            if idx in seen:
+                continue
+            chosen.append(idx)
+            seen.add(idx)
+            if len(chosen) == max_offsets:
+                break
+
+    chosen.sort()
+    return [offsets[idx] for idx in chosen]
+
+
 def event_start_time(cfg: PairConfig, offset: int, event_idx: int) -> int:
     """t_{k,m}(s) = s + m * Delta_k"""
     return offset + event_idx * cfg.connect_interval
@@ -128,6 +160,7 @@ def ble_channel_to_frequency_mhz(channel: int) -> float:
 def build_candidate_states(
     pair_configs: List[PairConfig],
     pattern_dict: Dict[int, List[HoppingPattern]],
+    max_offsets_per_pair: Optional[int] = None,
 ) -> Tuple[List[CandidateState], Dict[CandidateState, int], Dict[int, List[int]]]:
     """
     构造候选状态全集 A = union_k {(k, s, ell)}
@@ -141,7 +174,10 @@ def build_candidate_states(
 
     for cfg in pair_configs:
         k = cfg.pair_id
-        feasible_offsets = compute_feasible_offsets(cfg)
+        feasible_offsets = prune_feasible_offsets(
+            compute_feasible_offsets(cfg),
+            max_offsets=max_offsets_per_pair,
+        )
         if not feasible_offsets:
             raise ValueError(f"Pair {k} has no feasible offset.")
 
@@ -157,6 +193,40 @@ def build_candidate_states(
 
     state_to_idx = {st: i for i, st in enumerate(states)}
     return states, state_to_idx, A_k
+
+
+def summarize_candidate_space(
+    pair_configs: List[PairConfig],
+    pattern_dict: Dict[int, List[HoppingPattern]],
+    max_offsets_per_pair: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Summarize the BLE candidate space before solving."""
+    pair_summaries: List[Dict[str, Any]] = []
+    total_state_count = 0
+    for cfg in pair_configs:
+        offsets = prune_feasible_offsets(
+            compute_feasible_offsets(cfg),
+            max_offsets=max_offsets_per_pair,
+        )
+        pattern_count = len(pattern_dict.get(cfg.pair_id, ()))
+        state_count = len(offsets) * pattern_count
+        total_state_count += state_count
+        pair_summaries.append(
+            {
+                "pair_id": cfg.pair_id,
+                "offsets": offsets,
+                "offset_count": len(offsets),
+                "pattern_count": pattern_count,
+                "state_count": state_count,
+            }
+        )
+
+    return {
+        "pair_count": len(pair_configs),
+        "state_count": total_state_count,
+        "max_offsets_per_pair": max_offsets_per_pair,
+        "pairs": pair_summaries,
+    }
 
 
 def lookup_pattern(
@@ -457,11 +527,8 @@ def build_sdp_relaxation(
                     constraints.append(Y[i, j] == 0)
                     constraints.append(Y[j, i] == 0)
 
-    objective_expr = 0
-    for i in range(A):
-        for j in range(i + 1, A):
-            if Omega[i, j] != 0:
-                objective_expr += Omega[i, j] * Y[i, j]
+    # 只保留上三角，避免双层标量累加带来的 CVXPY 子表达式膨胀。
+    objective_expr = cp.sum(cp.multiply(np.triu(Omega, k=1), Y))
 
     problem = cp.Problem(cp.Minimize(objective_expr), constraints)
     return problem, Y
@@ -559,16 +626,32 @@ def solve_ble_hopping_schedule(
 def print_candidate_summary(
     pair_configs: List[PairConfig],
     pattern_dict: Dict[int, List[HoppingPattern]],
+    max_offsets_per_pair: Optional[int] = None,
 ) -> None:
     """打印每个 pair 的合法 offset 集与可选 pattern"""
     print("=" * 72)
-    print("候选状态摘要")
+    print("BLE candidate summary")
     print("=" * 72)
-    for cfg in pair_configs:
-        offsets = compute_feasible_offsets(cfg)
+    summary = summarize_candidate_space(
+        pair_configs=pair_configs,
+        pattern_dict=pattern_dict,
+        max_offsets_per_pair=max_offsets_per_pair,
+    )
+    cfg_by_id = {cfg.pair_id: cfg for cfg in pair_configs}
+    print(
+        f"pair_count={summary['pair_count']}, "
+        f"state_count={summary['state_count']}, "
+        f"max_offsets_per_pair={summary['max_offsets_per_pair']}"
+    )
+    for row in summary["pairs"]:
+        cfg = cfg_by_id[row["pair_id"]]
         pats = pattern_dict[cfg.pair_id]
+        offsets = row["offsets"]
         print(
-            f"Pair {cfg.pair_id}: offsets={offsets}, "
+            f"Pair {cfg.pair_id}: offset_count={row['offset_count']}, "
+            f"pattern_count={row['pattern_count']}, "
+            f"state_count={row['state_count']}, "
+            f"offsets={offsets}, "
             f"patterns={[p.pattern_id for p in pats]}, "
             f"(r={cfg.release_time}, D={cfg.deadline}, "
             f"Delta={cfg.connect_interval}, d={cfg.event_duration}, M={cfg.num_events})"
