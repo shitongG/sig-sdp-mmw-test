@@ -263,7 +263,7 @@ Y \succeq 0
 SDP 解得到的是松弛矩阵 $Y$，当前实现使用 $\mathrm{diag}(Y)$ 做简单 rounding：
 
 - 对每个 pair $k$
-- 在 $\mathcal{A}_k$ 中选择 $Y_{aa}$ 最大的 candidate state $a$
+- 在 $`\mathcal{A}_k`$ 中选择 $`Y_{aa}`$ 最大的 candidate state $`a`$
 
 它不是最强的 rounding 方法，但足够适合当前的 prototype / experimental workflow。
 
