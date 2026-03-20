@@ -104,44 +104,44 @@ pip install -r requirements.txt
 
 #### 3.3.1 问题定义
 
-设 BLE pair 集合为 `\mathcal{K}`，其中 `k \in \mathcal{K}` 表示第 `k` 个 BLE pair。  
+设 BLE pair 集合为 $\mathcal{K}$，其中 $k \in \mathcal{K}$ 表示第 $k$ 个 BLE pair。  
 对每个 pair，已知：
 
 - `r_k`：release time
 - `D_k`：deadline
-- `\Delta_k`：connect interval
+- $\Delta_k$：connect interval
 - `d_k`：单个 connection event, CE 的持续时长
 - `M_k`：宏周期内 CE 数量
-- `\mathcal{L}_k`：候选 hopping pattern 集
+- $\mathcal{L}_k$：候选 hopping pattern 集
 
-在当前实现中，一个候选 pattern `\ell \in \mathcal{L}_k` 由：
-- `c_{k,0}^{(\ell)}`：起始 data channel
-- `h_k^{(\ell)}`：hop increment
+在当前实现中，一个候选 pattern $\ell \in \mathcal{L}_k$ 由：
+- $c_{k,0}^{(\ell)}$：起始 data channel
+- $h_k^{(\ell)}$：hop increment
 
 共同描述。
 
 我们的目标是：  
-对每个 BLE pair 选择一个宏周期偏移 `s` 和一个 hopping pattern `\ell`，使所有 pair 在宏周期内的总时频碰撞代价最小。
+对每个 BLE pair 选择一个宏周期偏移 $s$ 和一个 hopping pattern $\ell$，使所有 pair 在宏周期内的总时频碰撞代价最小。
 
 #### 3.3.2 符号与可行 offset 集
 
-对每个 pair `k`，其可行 offset 集定义为：
+对每个 pair $k$，其可行 offset 集定义为：
 
-```text
+```math
 \mathcal{S}_k = \{ s \mid r_k \le s \le D_k - (M_k - 1)\Delta_k - d_k + 1 \}
 ```
 
 该式保证最后一个 CE 仍能在 `deadline` 前结束。
 
-给定 offset `s \in \mathcal{S}_k`，第 `m` 个 CE 的开始时间为：
+给定 offset $s \in \mathcal{S}_k$，第 $m$ 个 CE 的开始时间为：
 
-```text
+```math
 t_{k,m}(s) = s + m \Delta_k, \quad m = 0,1,\dots,M_k-1
 ```
 
 对应的时间占用区间为：
 
-```text
+```math
 I_{k,m}(s) = [t_{k,m}(s),\; t_{k,m}(s) + d_k - 1]
 ```
 
@@ -149,7 +149,7 @@ I_{k,m}(s) = [t_{k,m}(s),\; t_{k,m}(s) + d_k - 1]
 
 当前程序采用一个简化但可运行的 hopping 规则：
 
-```text
+```math
 c_{k,m}^{(\ell)} = (c_{k,0}^{(\ell)} + h_k^{(\ell)} m) \bmod 37
 ```
 
@@ -169,37 +169,37 @@ c_{k,m}^{(\ell)} = (c_{k,0}^{(\ell)} + h_k^{(\ell)} m) \bmod 37
 
 #### 3.3.4 Candidate state 定义
 
-对每个 pair `k`，定义 candidate state：
+对每个 pair $k$，定义 candidate state：
 
-```text
+```math
 a = (k, s, \ell), \quad s \in \mathcal{S}_k,\; \ell \in \mathcal{L}_k
 ```
 
-记第 `k` 个 pair 的候选状态全集为：
+记第 $k$ 个 pair 的候选状态全集为：
 
-```text
+```math
 \mathcal{A}_k = \{ (k, s, \ell) \mid s \in \mathcal{S}_k,\; \ell \in \mathcal{L}_k \}
 ```
 
 整个系统的候选状态总集合为：
 
-```text
+```math
 \mathcal{A} = \bigcup_{k \in \mathcal{K}} \mathcal{A}_k
 ```
 
 程序里的 `CandidateState(pair_id, offset, pattern_id)` 就是该定义的离散实现。
 
-#### 3.3.5 碰撞代价矩阵 `\Omega`
+#### 3.3.5 碰撞代价矩阵 $\Omega$
 
 对任意两个 candidate state
 
-```text
+```math
 a = (k, s, \ell), \quad b = (j, s', \ell')
 ```
 
 定义 CE 级碰撞代价为：
 
-```text
+```math
 \Omega_{ab}
 = \sum_{m=0}^{M_k-1} \sum_{n=0}^{M_j-1}
   w_{k,j}\;
@@ -209,8 +209,8 @@ a = (k, s, \ell), \quad b = (j, s', \ell')
 
 其中：
 - `w_{k,j}` 是 pair 间权重
-- `\mathbf{1}\{\cdot\}` 是同信道指示函数
-- `| I_{k,m}(s) \cap I_{j,n}(s') |` 是两个闭区间的重叠长度
+- $\mathbf{1}\{\cdot\}$ 是同信道指示函数
+- $| I_{k,m}(s) \cap I_{j,n}(s') |$ 是两个闭区间的重叠长度
 
 代码中的 `Omega` 就是对所有 candidate state 两两预计算得到的碰撞矩阵。
 
@@ -218,41 +218,41 @@ a = (k, s, \ell), \quad b = (j, s', \ell')
 
 如果直接做离散选择，可以写成：
 
-```text
+```math
 \min \sum_{a < b} \Omega_{ab} y_a y_b
 ```
 
-其中 `y_a \in \{0,1\}` 表示是否选择 candidate state `a`。
+其中 $y_a \in \{0,1\}$ 表示是否选择 candidate state $a$。
 
 约束为每个 pair 必须且只能选一个状态：
 
-```text
+```math
 \sum_{a \in \mathcal{A}_k} y_a = 1, \quad \forall k \in \mathcal{K}
 ```
 
 程序中采用的是 lifted SDP 松弛，令 `Y` 为对称矩阵变量，并最小化：
 
-```text
+```math
 \min \sum_{a < b} \Omega_{ab} Y_{ab}
 ```
 
 满足：
 
-```text
+```math
 \sum_{a \in \mathcal{A}_k} Y_{aa} = 1, \quad \forall k \in \mathcal{K}
 ```
 
-```text
+```math
 Y_{ab} = 0, \quad \forall a \ne b,\; a,b \in \mathcal{A}_k
 ```
 
-```text
+```math
 Y \succeq 0
 ```
 
-若设置硬碰撞阈值 `\eta`，还可加：
+若设置硬碰撞阈值 $\eta$，还可加：
 
-```text
+```math
 \Omega_{ab} > \eta \Rightarrow Y_{ab} = 0
 ```
 
@@ -260,10 +260,10 @@ Y \succeq 0
 
 #### 3.3.7 Rounding 与实现假设
 
-SDP 解得到的是松弛矩阵 `Y`，当前实现使用 `diag(Y)` 做简单 rounding：
+SDP 解得到的是松弛矩阵 $Y$，当前实现使用 `diag(Y)` 做简单 rounding：
 
-- 对每个 pair `k`
-- 在 `\mathcal{A}_k` 中选择 `Y_{aa}` 最大的 candidate state `a`
+- 对每个 pair $k$
+- 在 $\mathcal{A}_k$ 中选择 $Y_{aa}$ 最大的 candidate state $a$
 
 它不是最强的 rounding 方法，但足够适合当前的 prototype / experimental workflow。
 
