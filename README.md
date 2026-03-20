@@ -260,7 +260,7 @@ Y \succeq 0
 
 #### 3.3.7 Rounding 与实现假设
 
-SDP 解得到的是松弛矩阵 $Y$，当前实现使用 $\operatorname{diag}(Y)$ 做简单 rounding：
+SDP 解得到的是松弛矩阵 $Y$，当前实现使用 $\mathrm{diag}(Y)$ 做简单 rounding：
 
 - 对每个 pair $k$
 - 在 $\mathcal{A}_k$ 中选择 $Y_{aa}$ 最大的 candidate state $a$
@@ -277,7 +277,7 @@ SDP 解得到的是松弛矩阵 $Y$，当前实现使用 $\operatorname{diag}(Y)
 1. 对每个 BLE pair 构造 candidate state `(pair_id, offset, pattern_id)`
 2. 预计算碰撞矩阵 $\Omega$
 3. 解 lifted SDP 松弛
-4. 用 $\operatorname{diag}(Y)$ 做 rounding
+4. 用 $\mathrm{diag}(Y)$ 做 rounding
 5. 把选中状态展开成事件级时频块，并输出图像
 
 这个后端更适合：
