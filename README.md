@@ -100,22 +100,185 @@ pip install -r requirements.txt
 
 当 `ble_schedule_backend = macrocycle_hopping_sdp` 时，主脚本会调用 [ble_macrocycle_hopping_sdp.py](/data/home/Jie_Wan/mycode/sig-sdp-mmw-test/ble_macrocycle_hopping_sdp.py) 的 BLE-only 宏周期跳频调度器。
 
-建模步骤是：
+下面把它按论文里的 Problem Formulation 风格整理。
 
-1. 对每个 BLE pair 构造候选状态  
-   每个状态是 `(pair_id, offset, pattern_id)`，表示这个 pair 选择某个宏周期起始偏移和某个 hopping pattern。
+#### 3.3.1 问题定义
 
-2. 预计算碰撞矩阵 `Omega`  
-   如果两个候选状态在宏周期内出现同信道、同时间重叠，就把重叠长度计入代价。
+设 BLE pair 集合为 `\mathcal{K}`，其中 `k \in \mathcal{K}` 表示第 `k` 个 BLE pair。  
+对每个 pair，已知：
 
-3. 建立 SDP 松弛  
-   目标是最小化所有被同时选中的候选状态之间的总碰撞代价，同时保证每个 pair 只选一个候选状态。
+- `r_k`：release time
+- `D_k`：deadline
+- `\Delta_k`：connect interval
+- `d_k`：单个 connection event, CE 的持续时长
+- `M_k`：宏周期内 CE 数量
+- `\mathcal{L}_k`：候选 hopping pattern 集
 
-4. rounding 回离散解  
-   SDP 求得的是松弛矩阵，再通过 rounding 选出每个 pair 的最终 `(offset, pattern)`。
+在当前实现中，一个候选 pattern `\ell \in \mathcal{L}_k` 由：
+- `c_{k,0}^{(\ell)}`：起始 data channel
+- `h_k^{(\ell)}`：hop increment
 
-5. 回写主脚本  
-   选中状态会被转换成 `pair_ble_ce_channels`，然后继续复用主脚本已有的 CSV 导出和绘图逻辑。
+共同描述。
+
+我们的目标是：  
+对每个 BLE pair 选择一个宏周期偏移 `s` 和一个 hopping pattern `\ell`，使所有 pair 在宏周期内的总时频碰撞代价最小。
+
+#### 3.3.2 符号与可行 offset 集
+
+对每个 pair `k`，其可行 offset 集定义为：
+
+```text
+\mathcal{S}_k = \{ s \mid r_k \le s \le D_k - (M_k - 1)\Delta_k - d_k + 1 \}
+```
+
+该式保证最后一个 CE 仍能在 `deadline` 前结束。
+
+给定 offset `s \in \mathcal{S}_k`，第 `m` 个 CE 的开始时间为：
+
+```text
+t_{k,m}(s) = s + m \Delta_k, \quad m = 0,1,\dots,M_k-1
+```
+
+对应的时间占用区间为：
+
+```text
+I_{k,m}(s) = [t_{k,m}(s),\; t_{k,m}(s) + d_k - 1]
+```
+
+#### 3.3.3 Hopping 轨迹与 data channel 语义
+
+当前程序采用一个简化但可运行的 hopping 规则：
+
+```text
+c_{k,m}^{(\ell)} = (c_{k,0}^{(\ell)} + h_k^{(\ell)} m) \bmod 37
+```
+
+这里的 `37` 对应 BLE 的 `37` 个 data channel，而不是包含广播信道的全集。
+
+频率映射与主仿真环境保持一致：
+
+- `0..10 -> 2404 + 2k MHz`
+- `11..36 -> 2428 + 2(k-11) MHz`
+
+因此：
+- `2402 MHz`
+- `2426 MHz`
+- `2480 MHz`
+
+这三个 BLE 广播信道不进入 `macrocycle_hopping_sdp` 的 hopping 空间，standalone BLE-only 图里也不会把它们画成可被 data CE 占用的资源块。
+
+#### 3.3.4 Candidate state 定义
+
+对每个 pair `k`，定义 candidate state：
+
+```text
+a = (k, s, \ell), \quad s \in \mathcal{S}_k,\; \ell \in \mathcal{L}_k
+```
+
+记第 `k` 个 pair 的候选状态全集为：
+
+```text
+\mathcal{A}_k = \{ (k, s, \ell) \mid s \in \mathcal{S}_k,\; \ell \in \mathcal{L}_k \}
+```
+
+整个系统的候选状态总集合为：
+
+```text
+\mathcal{A} = \bigcup_{k \in \mathcal{K}} \mathcal{A}_k
+```
+
+程序里的 `CandidateState(pair_id, offset, pattern_id)` 就是该定义的离散实现。
+
+#### 3.3.5 碰撞代价矩阵 `\Omega`
+
+对任意两个 candidate state
+
+```text
+a = (k, s, \ell), \quad b = (j, s', \ell')
+```
+
+定义 CE 级碰撞代价为：
+
+```text
+\Omega_{ab}
+= \sum_{m=0}^{M_k-1} \sum_{n=0}^{M_j-1}
+  w_{k,j}\;
+  \mathbf{1}\{ c_{k,m}^{(\ell)} = c_{j,n}^{(\ell')} \}\;
+  | I_{k,m}(s) \cap I_{j,n}(s') |
+```
+
+其中：
+- `w_{k,j}` 是 pair 间权重
+- `\mathbf{1}\{\cdot\}` 是同信道指示函数
+- `| I_{k,m}(s) \cap I_{j,n}(s') |` 是两个闭区间的重叠长度
+
+代码中的 `Omega` 就是对所有 candidate state 两两预计算得到的碰撞矩阵。
+
+#### 3.3.6 离散优化与 lifted SDP 松弛
+
+如果直接做离散选择，可以写成：
+
+```text
+\min \sum_{a < b} \Omega_{ab} y_a y_b
+```
+
+其中 `y_a \in \{0,1\}` 表示是否选择 candidate state `a`。
+
+约束为每个 pair 必须且只能选一个状态：
+
+```text
+\sum_{a \in \mathcal{A}_k} y_a = 1, \quad \forall k \in \mathcal{K}
+```
+
+程序中采用的是 lifted SDP 松弛，令 `Y` 为对称矩阵变量，并最小化：
+
+```text
+\min \sum_{a < b} \Omega_{ab} Y_{ab}
+```
+
+满足：
+
+```text
+\sum_{a \in \mathcal{A}_k} Y_{aa} = 1, \quad \forall k \in \mathcal{K}
+```
+
+```text
+Y_{ab} = 0, \quad \forall a \ne b,\; a,b \in \mathcal{A}_k
+```
+
+```text
+Y \succeq 0
+```
+
+若设置硬碰撞阈值 `\eta`，还可加：
+
+```text
+\Omega_{ab} > \eta \Rightarrow Y_{ab} = 0
+```
+
+这正是 [ble_macrocycle_hopping_sdp.py](/data/home/Jie_Wan/mycode/sig-sdp-mmw-test/ble_macrocycle_hopping_sdp.py) 里 `build_sdp_relaxation()` 的数学含义。
+
+#### 3.3.7 Rounding 与实现假设
+
+SDP 解得到的是松弛矩阵 `Y`，当前实现使用 `diag(Y)` 做简单 rounding：
+
+- 对每个 pair `k`
+- 在 `\mathcal{A}_k` 中选择 `Y_{aa}` 最大的 candidate state `a`
+
+它不是最强的 rounding 方法，但足够适合当前的 prototype / experimental workflow。
+
+实现层面还需要注意两点：
+
+1. 当前 BLE-only 脚本中的 hopping 规则是实验性简化模型，不是 BLE Core Spec 的完整 channel selection algorithm。  
+2. 其频谱语义已经和主仿真脚本对齐：只在 37 个 BLE data channel 上 hopping，不触碰 BLE 广播信道。
+
+对应的程序步骤可以概括成：
+
+1. 对每个 BLE pair 构造 candidate state `(pair_id, offset, pattern_id)`
+2. 预计算碰撞矩阵 `Omega`
+3. 解 lifted SDP 松弛
+4. 用 `diag(Y)` 做 rounding
+5. 把选中状态展开成事件级时频块，并输出图像
 
 这个后端更适合：
 - 研究 BLE-only hopping 规则
@@ -214,6 +377,18 @@ python sim_script/pd_mmw_template_ap_stats.py \
 python ble_macrocycle_hopping_sdp.py
 ```
 
+如果要直接读取 standalone BLE-only JSON 配置，例如运行 `50` 对 BLE pair：
+
+```bash
+python ble_macrocycle_hopping_sdp.py \
+  --config ble_macrocycle_hopping_sdp_config.json
+```
+
+说明：
+- 不带 `--config` 时，使用脚本内置的 `4` 对 demo
+- 带 `--config` 时，会读取 `ble_macrocycle_hopping_sdp_config.json` 里的 `pair_configs`、`pattern_dict`、`pair_weight`、`output_path`
+- standalone 图也会额外标出 `BLE adv idle`，表示 `2402 / 2426 / 2480 MHz` 广播信道未被 data hopping 占用
+
 ## 5. 关键配置文件
 
 ### 4.1 默认随机配置
@@ -258,6 +433,15 @@ python ble_macrocycle_hopping_sdp.py
 - BLE 使用 `macrocycle_hopping_sdp` 后端
 - BLE 的 `ble_ci_slots` 和 `ble_ce_slots` 由 `seed` 自动生成，不再在 JSON 里手填
 - 适合作为大规模通信下的回归与性能基线
+
+### 4.6 BLE-only standalone 50 对配置
+
+- `ble_macrocycle_hopping_sdp_config.json`
+
+用途：
+- 直接给 `ble_macrocycle_hopping_sdp.py` 读取
+- 当前文件预置 `50` 对 BLE pair
+- 输出 BLE-only 宏周期 hopping 的事件级块表和调度图
 
 ## 6. 可以改哪些参数
 

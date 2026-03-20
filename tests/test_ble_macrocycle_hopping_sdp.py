@@ -28,6 +28,40 @@ class EventBlockExpansionTest(unittest.TestCase):
         return_annotation = MODULE.build_sdp_relaxation.__annotations__["return"]
         self.assertNotIn("cp.", str(return_annotation))
 
+    def test_ble_data_channel_frequency_mapping_matches_two_segment_model(self):
+        self.assertEqual(MODULE.ble_channel_to_frequency_mhz(0), 2404.0)
+        self.assertEqual(MODULE.ble_channel_to_frequency_mhz(10), 2424.0)
+        self.assertEqual(MODULE.ble_channel_to_frequency_mhz(11), 2428.0)
+        self.assertEqual(MODULE.ble_channel_to_frequency_mhz(36), 2478.0)
+
+    def test_load_ble_standalone_config_parses_fifty_pair_json(self):
+        config_path = pathlib.Path(__file__).resolve().parents[1] / "ble_macrocycle_hopping_sdp_config.json"
+
+        config = MODULE.load_ble_standalone_config(config_path)
+        states, _, A_k = MODULE.build_candidate_states(config.pair_configs, config.pattern_dict)
+
+        self.assertEqual(config.num_channels, 37)
+        self.assertEqual(len(config.pair_configs), 50)
+        self.assertEqual(len(config.pattern_dict), 50)
+        self.assertEqual(config.output_path.name, "ble_macrocycle_hopping_sdp_schedule.png")
+        self.assertEqual(len(states), 112)
+        self.assertEqual(len(A_k), 50)
+
+    def test_resolve_standalone_config_uses_demo_fallback(self):
+        config = MODULE.resolve_standalone_config(None)
+
+        self.assertEqual(len(config.pair_configs), 4)
+        self.assertEqual(config.plot_title, "BLE Event Grid")
+        self.assertTrue(config.output_path.name.endswith(".png"))
+
+    def test_build_ble_advertising_idle_blocks_cover_three_band_centers(self):
+        idle_blocks = MODULE.build_ble_advertising_idle_blocks(24)
+
+        self.assertEqual(len(idle_blocks), 3)
+        self.assertEqual({block.frequency_mhz for block in idle_blocks}, set(MODULE.BLE_ADVERTISING_CENTER_FREQ_MHZ))
+        self.assertTrue(all(block.start_slot == 0 for block in idle_blocks))
+        self.assertTrue(all(block.end_slot == 23 for block in idle_blocks))
+
     def test_build_sdp_relaxation_objective_is_vectorized(self):
         source = inspect.getsource(MODULE.build_sdp_relaxation)
         self.assertIn("np.triu", source)
@@ -59,6 +93,16 @@ class EventBlockExpansionTest(unittest.TestCase):
 
         vectorized = np.sum(np.triu(omega, k=1) * y_value)
         self.assertAlmostEqual(reference, vectorized)
+
+    def test_event_blocks_never_use_ble_advertising_frequencies(self):
+        pair_configs, cfg_dict, pattern_dict, _, num_channels = MODULE.build_demo_instance()
+        states, _, A_k = MODULE.build_candidate_states(pair_configs, pattern_dict)
+        selected = {k: states[idxs[0]] for k, idxs in A_k.items()}
+
+        blocks = MODULE.build_event_blocks(selected, cfg_dict, pattern_dict, num_channels)
+        freqs = {block.frequency_mhz for block in blocks}
+
+        self.assertTrue(freqs.isdisjoint(set(MODULE.BLE_ADVERTISING_CENTER_FREQ_MHZ)))
 
     def test_prune_feasible_offsets_limits_count_and_keeps_edges(self):
         offsets = list(range(1, 11))
@@ -161,10 +205,10 @@ class EventBlockExpansionTest(unittest.TestCase):
         self.assertEqual(blocks[0].start_slot, 1)
         self.assertEqual(blocks[0].end_slot, 2)
         self.assertEqual(blocks[0].channel, 5)
-        self.assertEqual(blocks[0].frequency_mhz, 2412.0)
+        self.assertEqual(blocks[0].frequency_mhz, 2414.0)
         self.assertEqual(blocks[1].start_slot, 4)
         self.assertEqual(blocks[1].channel, 9)
-        self.assertEqual(blocks[1].frequency_mhz, 2420.0)
+        self.assertEqual(blocks[1].frequency_mhz, 2422.0)
 
     def test_same_channel_time_overlap_builds_overlap_block(self):
         blocks = [
@@ -174,7 +218,7 @@ class EventBlockExpansionTest(unittest.TestCase):
                 start_slot=2,
                 end_slot=5,
                 channel=10,
-                frequency_mhz=2422.0,
+                frequency_mhz=2424.0,
                 offset=2,
                 pattern_id=0,
             ),
@@ -184,7 +228,7 @@ class EventBlockExpansionTest(unittest.TestCase):
                 start_slot=4,
                 end_slot=6,
                 channel=10,
-                frequency_mhz=2422.0,
+                frequency_mhz=2424.0,
                 offset=4,
                 pattern_id=1,
             ),
@@ -196,7 +240,7 @@ class EventBlockExpansionTest(unittest.TestCase):
         self.assertEqual(overlaps[0].start_slot, 4)
         self.assertEqual(overlaps[0].end_slot, 5)
         self.assertEqual(overlaps[0].channel, 10)
-        self.assertEqual(overlaps[0].frequency_mhz, 2422.0)
+        self.assertEqual(overlaps[0].frequency_mhz, 2424.0)
 
     def test_same_overlap_window_is_deduplicated(self):
         blocks = [
@@ -206,7 +250,7 @@ class EventBlockExpansionTest(unittest.TestCase):
                 start_slot=2,
                 end_slot=5,
                 channel=10,
-                frequency_mhz=2422.0,
+                frequency_mhz=2424.0,
                 offset=2,
                 pattern_id=0,
             ),
@@ -216,7 +260,7 @@ class EventBlockExpansionTest(unittest.TestCase):
                 start_slot=2,
                 end_slot=5,
                 channel=10,
-                frequency_mhz=2422.0,
+                frequency_mhz=2424.0,
                 offset=2,
                 pattern_id=1,
             ),
@@ -226,7 +270,7 @@ class EventBlockExpansionTest(unittest.TestCase):
                 start_slot=2,
                 end_slot=5,
                 channel=10,
-                frequency_mhz=2422.0,
+                frequency_mhz=2424.0,
                 offset=2,
                 pattern_id=2,
             ),
@@ -247,7 +291,7 @@ class EventBlockExpansionTest(unittest.TestCase):
                 start_slot=8,
                 end_slot=10,
                 channel=12,
-                frequency_mhz=2426.0,
+                frequency_mhz=2430.0,
                 offset=2,
                 pattern_id=0,
             )

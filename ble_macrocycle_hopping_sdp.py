@@ -23,6 +23,8 @@ BLE-only 宏周期 hopping 轨迹调度：完整可运行示例
 
 from __future__ import annotations
 
+import argparse
+import json
 from dataclasses import dataclass
 import os
 from pathlib import Path
@@ -37,6 +39,10 @@ try:
     import cvxpy as cp
 except ImportError:  # pragma: no cover - fallback for environments without cvxpy
     cp = None
+
+
+BLE_DATA_CHANNEL_COUNT = 37
+BLE_ADVERTISING_CENTER_FREQ_MHZ = (2402.0, 2426.0, 2480.0)
 
 
 @dataclass(frozen=True)
@@ -73,6 +79,19 @@ class EventBlock:
     frequency_mhz: float
     offset: int
     pattern_id: int
+
+
+@dataclass(frozen=True)
+class BLEStandaloneConfig:
+    config_path: Optional[Path]
+    num_channels: int
+    pair_configs: List[PairConfig]
+    cfg_dict: Dict[int, PairConfig]
+    pattern_dict: Dict[int, List[HoppingPattern]]
+    pair_weight: Dict[Tuple[int, int], float]
+    hard_collision_threshold: Optional[float]
+    plot_title: str
+    output_path: Path
 
 
 def compute_feasible_offsets(cfg: PairConfig) -> List[int]:
@@ -153,8 +172,12 @@ def channel_of_event(pattern: HoppingPattern, event_idx: int, num_channels: int)
 
 
 def ble_channel_to_frequency_mhz(channel: int) -> float:
-    """Map BLE channel index to its center frequency in MHz."""
-    return 2402.0 + 2.0 * channel
+    """Map BLE data-channel index to its center frequency in MHz."""
+    if not 0 <= channel < BLE_DATA_CHANNEL_COUNT:
+        raise ValueError(f"BLE data channel must be within [0, {BLE_DATA_CHANNEL_COUNT - 1}].")
+    if channel <= 10:
+        return 2404.0 + 2.0 * channel
+    return 2428.0 + 2.0 * (channel - 11)
 
 
 def build_candidate_states(
@@ -271,6 +294,25 @@ def build_event_blocks(
     return blocks
 
 
+def build_ble_advertising_idle_blocks(max_slot: int) -> List[EventBlock]:
+    """Build full-width BLE advertising-channel bands for plotting."""
+    if max_slot <= 0:
+        return []
+    return [
+        EventBlock(
+            pair_id=-1,
+            event_index=-1,
+            start_slot=0,
+            end_slot=max_slot - 1,
+            channel=-1,
+            frequency_mhz=freq,
+            offset=-1,
+            pattern_id=-1,
+        )
+        for freq in BLE_ADVERTISING_CENTER_FREQ_MHZ
+    ]
+
+
 def build_overlap_blocks(blocks: List[EventBlock]) -> List[EventBlock]:
     """Build time-frequency segments where same-channel blocks overlap."""
     overlap_blocks: List[EventBlock] = []
@@ -374,6 +416,13 @@ def render_event_grid(
                 color="black",
             )
 
+    all_blocks = blocks + overlap_blocks
+    max_slot = max((block.end_slot for block in all_blocks), default=-1) + 1
+    idle_blocks = build_ble_advertising_idle_blocks(max_slot)
+
+    for block in idle_blocks:
+        _draw_block(block, color="#c7c7c7", alpha=0.45)
+
     for block in blocks:
         _draw_block(
             block,
@@ -385,11 +434,10 @@ def render_event_grid(
     for block in overlap_blocks:
         _draw_block(block, color="#e15759", alpha=0.75)
 
-    all_blocks = blocks + overlap_blocks
-    if all_blocks:
-        min_freq = min(block.frequency_mhz for block in all_blocks) - 2.0
-        max_freq = max(block.frequency_mhz for block in all_blocks) + 2.0
-        max_slot = max(block.end_slot for block in all_blocks) + 1
+    plot_blocks = all_blocks + idle_blocks
+    if plot_blocks:
+        min_freq = min(block.frequency_mhz for block in plot_blocks) - 2.0
+        max_freq = max(block.frequency_mhz for block in plot_blocks) + 2.0
         ax.set_ylim(min_freq, max_freq)
         ax.set_xlim(0, max_slot)
 
@@ -397,11 +445,149 @@ def render_event_grid(
     ax.set_xlabel("Slot")
     ax.set_ylabel("Frequency (MHz)")
     ax.grid(True, axis="x", alpha=0.2)
-    ax.legend(handles=[Patch(color="#dd8452", label="BLE"), Patch(color="#e15759", label="BLE overlap")])
+    ax.legend(
+        handles=[
+            Patch(color="#c7c7c7", label="BLE adv idle"),
+            Patch(color="#dd8452", label="BLE"),
+            Patch(color="#e15759", label="BLE overlap"),
+        ]
+    )
 
     fig.tight_layout()
     fig.savefig(output_path, dpi=200)
     plt.close(fig)
+
+
+def strip_comment_keys(obj: Any) -> Any:
+    """Remove `_comment_*` keys recursively from a JSON object."""
+    if isinstance(obj, dict):
+        return {
+            key: strip_comment_keys(value)
+            for key, value in obj.items()
+            if not (isinstance(key, str) and key.startswith("_comment"))
+        }
+    if isinstance(obj, list):
+        return [strip_comment_keys(item) for item in obj]
+    return obj
+
+
+def parse_pair_weight_map(raw_pair_weight: Any) -> Dict[Tuple[int, int], float]:
+    """Parse optional pair-weight encodings from JSON."""
+    if raw_pair_weight in (None, {}):
+        return {}
+    if not isinstance(raw_pair_weight, dict):
+        raise ValueError("pair_weight must be a JSON object.")
+
+    pair_weight: Dict[Tuple[int, int], float] = {}
+    for raw_key, raw_value in raw_pair_weight.items():
+        if isinstance(raw_key, str):
+            if "," in raw_key:
+                left, right = raw_key.split(",", 1)
+            elif "-" in raw_key:
+                left, right = raw_key.split("-", 1)
+            else:
+                raise ValueError(
+                    "pair_weight keys must be encoded as 'i,j' or 'i-j' strings."
+                )
+            pair_key = (int(left.strip()), int(right.strip()))
+        elif isinstance(raw_key, (tuple, list)) and len(raw_key) == 2:
+            pair_key = (int(raw_key[0]), int(raw_key[1]))
+        else:
+            raise ValueError("Unsupported pair_weight key format.")
+
+        if isinstance(raw_value, dict):
+            if "weight" not in raw_value:
+                raise ValueError("pair_weight entry dict must contain a 'weight' field.")
+            weight_value = float(raw_value["weight"])
+        else:
+            weight_value = float(raw_value)
+
+        pair_weight[(min(pair_key), max(pair_key))] = weight_value
+
+    return pair_weight
+
+
+def load_ble_standalone_config(config_path: Path) -> BLEStandaloneConfig:
+    """Load the standalone BLE-only JSON config used by the demo script."""
+    raw = json.loads(Path(config_path).read_text())
+    data = strip_comment_keys(raw)
+    if not isinstance(data, dict):
+        raise ValueError("Standalone BLE config must be a JSON object.")
+
+    num_channels = int(data.get("num_channels", BLE_DATA_CHANNEL_COUNT))
+    hard_collision_threshold = data.get("hard_collision_threshold", None)
+    if hard_collision_threshold is not None:
+        hard_collision_threshold = float(hard_collision_threshold)
+
+    pair_configs = [PairConfig(**item) for item in data.get("pair_configs", [])]
+    pair_configs.sort(key=lambda cfg: cfg.pair_id)
+    cfg_dict = {cfg.pair_id: cfg for cfg in pair_configs}
+
+    raw_pattern_dict = data.get("pattern_dict", {})
+    if not isinstance(raw_pattern_dict, dict):
+        raise ValueError("pattern_dict must be a JSON object.")
+    pattern_dict: Dict[int, List[HoppingPattern]] = {}
+    for key, value in raw_pattern_dict.items():
+        pair_id = int(key)
+        if not isinstance(value, list):
+            raise ValueError(f"pattern_dict[{pair_id}] must be a list.")
+        patterns = [HoppingPattern(**item) for item in value]
+        patterns.sort(key=lambda pat: pat.pattern_id)
+        pattern_dict[pair_id] = patterns
+
+    pair_weight = parse_pair_weight_map(data.get("pair_weight", {}))
+
+    plot_title = str(data.get("plot_title", "BLE Event Grid"))
+    output_path = data.get("output_path", "ble_macrocycle_hopping_sdp_schedule.png")
+    output_path = Path(output_path)
+    if not output_path.is_absolute():
+        output_path = Path(config_path).resolve().parent / output_path
+
+    return BLEStandaloneConfig(
+        config_path=Path(config_path).resolve(),
+        num_channels=num_channels,
+        pair_configs=pair_configs,
+        cfg_dict=cfg_dict,
+        pattern_dict=pattern_dict,
+        pair_weight=pair_weight,
+        hard_collision_threshold=hard_collision_threshold,
+        plot_title=plot_title,
+        output_path=output_path,
+    )
+
+
+def build_demo_standalone_config() -> BLEStandaloneConfig:
+    """Build the legacy demo configuration used when no JSON config is supplied."""
+    pair_configs, cfg_dict, pattern_dict, pair_weight, num_channels = build_demo_instance()
+    return BLEStandaloneConfig(
+        config_path=None,
+        num_channels=num_channels,
+        pair_configs=pair_configs,
+        cfg_dict=cfg_dict,
+        pattern_dict=pattern_dict,
+        pair_weight=pair_weight,
+        hard_collision_threshold=None,
+        plot_title="BLE Event Grid",
+        output_path=Path(__file__).with_name("ble_macrocycle_hopping_sdp_schedule.png"),
+    )
+
+
+def resolve_standalone_config(config_path: Optional[Path]) -> BLEStandaloneConfig:
+    """Resolve either the JSON config path or the built-in demo fallback."""
+    if config_path is None:
+        return build_demo_standalone_config()
+    return load_ble_standalone_config(Path(config_path))
+
+
+def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="BLE-only macrocycle hopping SDP demo")
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Path to a JSON config file such as ble_macrocycle_hopping_sdp_config.json",
+    )
+    return parser.parse_args(argv)
 
 
 def require_cvxpy() -> None:
@@ -775,19 +961,18 @@ def build_demo_instance():
     return pair_configs, cfg_dict, pattern_dict, pair_weight, num_channels
 
 
-def main() -> None:
+def run_ble_macrocycle_hopping_sdp(config_path: Optional[Path] = None) -> Dict[str, Any]:
     """
-    主流程：
-        1. 构造示例
-        2. 枚举候选状态
-        3. 预计算 Omega
-        4. 解 SDP
-        5. rounding 恢复离散调度
-        6. 打印结果
+    Solve and render the BLE-only schedule either from a JSON config or from the demo fallback.
     """
     require_cvxpy()
 
-    pair_configs, cfg_dict, pattern_dict, pair_weight, num_channels = build_demo_instance()
+    runtime = resolve_standalone_config(config_path)
+    pair_configs = runtime.pair_configs
+    cfg_dict = runtime.cfg_dict
+    pattern_dict = runtime.pattern_dict
+    pair_weight = runtime.pair_weight
+    num_channels = runtime.num_channels
     pair_ids = [cfg.pair_id for cfg in pair_configs]
 
     print_candidate_summary(pair_configs, pattern_dict)
@@ -856,9 +1041,8 @@ def main() -> None:
     print(f"rounding 后离散调度的总碰撞代价: {total_collision:.4f}")
     print("=" * 72)
 
-    output_path = Path(__file__).with_name("ble_macrocycle_hopping_sdp_schedule.png")
-    render_event_grid(blocks, overlap_blocks, output_path, title="BLE Event Grid")
-    print(f"调度图已保存: {output_path}")
+    render_event_grid(blocks, overlap_blocks, runtime.output_path, title=runtime.plot_title)
+    print(f"调度图已保存: {runtime.output_path}")
 
     print("\n各候选状态的对角元分数 Y_aa:")
     diag_scores = np.diag(Y.value)
@@ -868,6 +1052,34 @@ def main() -> None:
             f"idx={idx:2d}, pair={st.pair_id}, offset={st.offset}, "
             f"pattern={st.pattern_id}, score={score:.4f}"
         )
+
+    return {
+        "runtime": runtime,
+        "states": states,
+        "state_to_idx": state_to_idx,
+        "A_k": A_k,
+        "Omega": Omega,
+        "problem": problem,
+        "Y": Y,
+        "selected": selected,
+        "blocks": blocks,
+        "overlap_blocks": overlap_blocks,
+        "total_collision": total_collision,
+    }
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    """
+    主流程：
+        1. 从 JSON 或 demo 构造实例
+        2. 枚举候选状态
+        3. 预计算 Omega
+        4. 解 SDP
+        5. rounding 恢复离散调度
+        6. 打印结果
+    """
+    args = parse_args(argv)
+    run_ble_macrocycle_hopping_sdp(args.config)
 
 
 if __name__ == "__main__":
