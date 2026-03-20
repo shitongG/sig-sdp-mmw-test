@@ -107,11 +107,11 @@ pip install -r requirements.txt
 设 BLE pair 集合为 $\mathcal{K}$，其中 $k \in \mathcal{K}$ 表示第 $k$ 个 BLE pair。  
 对每个 pair，已知：
 
-- `r_k`：release time
-- `D_k`：deadline
+- $r_k$：release time
+- $D_k$：deadline
 - $\Delta_k$：connect interval
-- `d_k`：单个 connection event, CE 的持续时长
-- `M_k`：宏周期内 CE 数量
+- $d_k$：单个 connection event, CE 的持续时长
+- $M_k$：宏周期内 CE 数量
 - $\mathcal{L}_k$：候选 hopping pattern 集
 
 在当前实现中，一个候选 pattern $\ell \in \mathcal{L}_k$ 由：
@@ -212,7 +212,7 @@ a = (k, s, \ell), \quad b = (j, s', \ell')
 - $\mathbf{1}\{\cdot\}$ 是同信道指示函数
 - $| I_{k,m}(s) \cap I_{j,n}(s') |$ 是两个闭区间的重叠长度
 
-代码中的 `Omega` 就是对所有 candidate state 两两预计算得到的碰撞矩阵。
+代码中的 $\Omega$ 就是对所有 candidate state 两两预计算得到的碰撞矩阵。
 
 #### 3.3.6 离散优化与 lifted SDP 松弛
 
@@ -230,7 +230,7 @@ a = (k, s, \ell), \quad b = (j, s', \ell')
 \sum_{a \in \mathcal{A}_k} y_a = 1, \quad \forall k \in \mathcal{K}
 ```
 
-程序中采用的是 lifted SDP 松弛，令 `Y` 为对称矩阵变量，并最小化：
+程序中采用的是 lifted SDP 松弛，令 $Y$ 为对称矩阵变量，并最小化：
 
 ```math
 \min \sum_{a < b} \Omega_{ab} Y_{ab}
@@ -260,7 +260,7 @@ Y \succeq 0
 
 #### 3.3.7 Rounding 与实现假设
 
-SDP 解得到的是松弛矩阵 $Y$，当前实现使用 `diag(Y)` 做简单 rounding：
+SDP 解得到的是松弛矩阵 $Y$，当前实现使用 $\operatorname{diag}(Y)$ 做简单 rounding：
 
 - 对每个 pair $k$
 - 在 $\mathcal{A}_k$ 中选择 $Y_{aa}$ 最大的 candidate state $a$
@@ -275,9 +275,9 @@ SDP 解得到的是松弛矩阵 $Y$，当前实现使用 `diag(Y)` 做简单 rou
 对应的程序步骤可以概括成：
 
 1. 对每个 BLE pair 构造 candidate state `(pair_id, offset, pattern_id)`
-2. 预计算碰撞矩阵 `Omega`
+2. 预计算碰撞矩阵 $\Omega$
 3. 解 lifted SDP 松弛
-4. 用 `diag(Y)` 做 rounding
+4. 用 $\operatorname{diag}(Y)$ 做 rounding
 5. 把选中状态展开成事件级时频块，并输出图像
 
 这个后端更适合：
