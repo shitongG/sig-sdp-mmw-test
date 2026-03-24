@@ -363,6 +363,138 @@ def test_macrocycle_hopping_backend_json_config_exists():
     assert MACRO_BACKEND_CONFIG_PATH.exists()
 
 
+def test_script_runs_from_macrocycle_hopping_ga_backend_json_config():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = pathlib.Path(tmpdir) / "macrocycle_ga_backend.json"
+        config_path.write_text(
+            json.dumps(
+                {
+                    "cell_size": 1,
+                    "seed": 123,
+                    "mmw_nit": 1,
+                    "mmw_eta": 0.05,
+                    "ble_schedule_backend": "macrocycle_hopping_ga",
+                    "ble_ga_population_size": 12,
+                    "ble_ga_generations": 6,
+                    "ble_ga_mutation_rate": 0.1,
+                    "ble_ga_crossover_rate": 0.8,
+                    "ble_ga_elite_count": 1,
+                    "ble_ga_seed": 7,
+                    "pair_generation_mode": "manual",
+                    "output_dir": "macrocycle_ga_out",
+                    "pair_parameters": [
+                        {
+                            "pair_id": 0,
+                            "office_id": 0,
+                            "radio": "ble",
+                            "channel": 8,
+                            "priority": 1.0,
+                            "release_time_slot": 0,
+                            "deadline_slot": 31,
+                            "start_time_slot": 0,
+                            "ble_anchor_slot": 0,
+                            "ble_timing_mode": "auto"
+                        },
+                        {
+                            "pair_id": 1,
+                            "office_id": 0,
+                            "radio": "wifi",
+                            "channel": 0,
+                            "priority": 1.0,
+                            "release_time_slot": 0,
+                            "deadline_slot": 15,
+                            "start_time_slot": 0,
+                            "wifi_anchor_slot": 0,
+                            "wifi_period_slots": 16,
+                            "wifi_tx_slots": 2
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        proc = subprocess.run(
+            [sys.executable, str(SCRIPT_PATH), "--config", str(config_path)],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert "ble_schedule_backend = macrocycle_hopping_ga" in proc.stdout
+        assert (pathlib.Path(tmpdir) / "macrocycle_ga_out" / "pair_parameters.csv").exists()
+
+
+def test_script_accepts_ble_schedule_backend_cli_override_to_ga():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = pathlib.Path(tmpdir) / "legacy_ga_override.json"
+        config_path.write_text(
+            json.dumps(
+                {
+                    "cell_size": 1,
+                    "seed": 123,
+                    "mmw_nit": 1,
+                    "mmw_eta": 0.05,
+                    "ble_schedule_backend": "legacy",
+                    "pair_generation_mode": "manual",
+                    "output_dir": "ga_override_out",
+                    "pair_parameters": [
+                        {
+                            "pair_id": 0,
+                            "office_id": 0,
+                            "radio": "ble",
+                            "channel": 8,
+                            "priority": 1.0,
+                            "release_time_slot": 0,
+                            "deadline_slot": 31,
+                            "start_time_slot": 0,
+                            "ble_anchor_slot": 0,
+                            "ble_timing_mode": "auto"
+                        },
+                        {
+                            "pair_id": 1,
+                            "office_id": 0,
+                            "radio": "wifi",
+                            "channel": 0,
+                            "priority": 1.0,
+                            "release_time_slot": 0,
+                            "deadline_slot": 15,
+                            "start_time_slot": 0,
+                            "wifi_anchor_slot": 0,
+                            "wifi_period_slots": 16,
+                            "wifi_tx_slots": 2
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--config",
+                str(config_path),
+                "--ble-schedule-backend",
+                "macrocycle_hopping_ga",
+                "--ble-ga-population-size",
+                "10",
+                "--ble-ga-generations",
+                "5",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert "ble_schedule_backend = macrocycle_hopping_ga" in proc.stdout
+        assert (pathlib.Path(tmpdir) / "ga_override_out" / "pair_parameters.csv").exists()
+
+
 def test_script_runs_from_macrocycle_hopping_backend_json_config():
     with tempfile.TemporaryDirectory() as tmpdir:
         config_path = pathlib.Path(tmpdir) / "macrocycle_backend.json"

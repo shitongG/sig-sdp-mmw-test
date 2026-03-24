@@ -33,6 +33,12 @@ DEFAULT_CONFIG = {
     "ble_schedule_backend": "legacy",
     "ble_max_offsets_per_pair": None,
     "ble_log_candidate_summary": False,
+    "ble_ga_population_size": 32,
+    "ble_ga_generations": 40,
+    "ble_ga_mutation_rate": 0.05,
+    "ble_ga_crossover_rate": 0.8,
+    "ble_ga_elite_count": 1,
+    "ble_ga_seed": 7,
     "output_dir": "sim_script/output",
     "wifi_first_ble_scheduling": False,
     "pair_generation_mode": "random",
@@ -40,16 +46,25 @@ DEFAULT_CONFIG = {
 }
 
 
-def _load_local_ble_hopping_module():
+def _load_local_module(filename: str, module_name: str):
     repo_root = Path(__file__).resolve().parents[1]
-    module_path = repo_root / "ble_macrocycle_hopping_sdp.py"
-    spec = importlib.util.spec_from_file_location("ble_macrocycle_hopping_sdp_local", module_path)
+    module_path = repo_root / filename
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
     if spec is None or spec.loader is None:
-        raise ImportError(f"Unable to load BLE hopping module from {module_path}")
+        raise ImportError(f"Unable to load module from {module_path}")
     module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
+    sys.modules[module_name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def _load_local_ble_hopping_module():
+    return _load_local_module("ble_macrocycle_hopping_sdp.py", "ble_macrocycle_hopping_sdp")
+
+
+def _load_local_ble_hopping_ga_module():
+    _load_local_ble_hopping_module()
+    return _load_local_module("ble_macrocycle_hopping_ga.py", "ble_macrocycle_hopping_ga")
 
 
 def strip_comment_keys(payload):
@@ -143,8 +158,8 @@ def merge_config_with_defaults(config: dict):
         raise ValueError("max_slots must be at least 2.")
     if merged["ble_channel_mode"] not in {"single", "per_ce"}:
         raise ValueError("ble_channel_mode must be 'single' or 'per_ce'.")
-    if merged["ble_schedule_backend"] not in {"legacy", "macrocycle_hopping_sdp"}:
-        raise ValueError("ble_schedule_backend must be 'legacy' or 'macrocycle_hopping_sdp'.")
+    if merged["ble_schedule_backend"] not in {"legacy", "macrocycle_hopping_sdp", "macrocycle_hopping_ga"}:
+        raise ValueError("ble_schedule_backend must be 'legacy', 'macrocycle_hopping_sdp', or 'macrocycle_hopping_ga'.")
     ble_max_offsets_per_pair = merged["ble_max_offsets_per_pair"]
     if ble_max_offsets_per_pair is not None and int(ble_max_offsets_per_pair) < 1:
         raise ValueError("ble_max_offsets_per_pair must be None or a positive integer.")
@@ -152,6 +167,12 @@ def merge_config_with_defaults(config: dict):
         None if ble_max_offsets_per_pair is None else int(ble_max_offsets_per_pair)
     )
     merged["ble_log_candidate_summary"] = bool(merged["ble_log_candidate_summary"])
+    merged["ble_ga_population_size"] = int(merged["ble_ga_population_size"])
+    merged["ble_ga_generations"] = int(merged["ble_ga_generations"])
+    merged["ble_ga_mutation_rate"] = float(merged["ble_ga_mutation_rate"])
+    merged["ble_ga_crossover_rate"] = float(merged["ble_ga_crossover_rate"])
+    merged["ble_ga_elite_count"] = int(merged["ble_ga_elite_count"])
+    merged["ble_ga_seed"] = int(merged["ble_ga_seed"]) if merged["ble_ga_seed"] is not None else None
     if merged["pair_generation_mode"] not in {"random", "manual"}:
         raise ValueError("pair_generation_mode must be 'random' or 'manual'.")
     if merged["pair_generation_mode"] == "manual":
@@ -261,6 +282,72 @@ def solve_ble_hopping_for_env(
     )
 
 
+def solve_ble_hopping_ga_for_env(
+    e: env,
+    config: dict | None = None,
+    external_interference_blocks=None,
+):
+    ble_hopping = _load_local_ble_hopping_module()
+    ble_hopping_ga = _load_local_ble_hopping_ga_module()
+    build_candidate_states = ble_hopping.build_candidate_states
+    print_candidate_summary = ble_hopping.print_candidate_summary
+    solve_ble_hopping_schedule_ga = ble_hopping_ga.solve_ble_hopping_schedule_ga
+
+    pair_configs, cfg_dict, pattern_dict, num_channels = build_ble_hopping_inputs_from_env(e)
+    if not pair_configs:
+        return {
+            "problem": None,
+            "Y": None,
+            "selected": {},
+            "blocks": [],
+            "overlap_blocks": [],
+            "ce_channel_map": {},
+            "objective_value": 0.0,
+            "ga_result": None,
+        }
+
+    pair_ids = [cfg.pair_id for cfg in pair_configs]
+    max_offsets_per_pair = None if config is None else config.get("ble_max_offsets_per_pair")
+    if config is not None and config.get("ble_log_candidate_summary", False):
+        print_candidate_summary(
+            pair_configs=pair_configs,
+            pattern_dict=pattern_dict,
+            max_offsets_per_pair=max_offsets_per_pair,
+        )
+    states, _, A_k = build_candidate_states(
+        pair_configs,
+        pattern_dict,
+        max_offsets_per_pair=max_offsets_per_pair,
+    )
+    ga_result = solve_ble_hopping_schedule_ga(
+        candidate_states=states,
+        cfg_dict=cfg_dict,
+        pattern_dict=pattern_dict,
+        num_channels=num_channels,
+        pair_ids=pair_ids,
+        pair_weight=None,
+        external_interference_blocks=external_interference_blocks,
+        population_size=32 if config is None else int(config.get("ble_ga_population_size", 32)),
+        generations=40 if config is None else int(config.get("ble_ga_generations", 40)),
+        mutation_rate=0.05 if config is None else float(config.get("ble_ga_mutation_rate", 0.05)),
+        crossover_rate=0.8 if config is None else float(config.get("ble_ga_crossover_rate", 0.8)),
+        elite_count=1 if config is None else int(config.get("ble_ga_elite_count", 1)),
+        seed=None if config is None else config.get("ble_ga_seed"),
+    )
+    return {
+        "problem": None,
+        "Y": None,
+        "selected": ga_result.selected,
+        "blocks": ga_result.blocks,
+        "overlap_blocks": ga_result.overlap_blocks,
+        "ce_channel_map": ga_result.ce_channel_map,
+        "objective_value": float(ga_result.best_fitness),
+        "ga_result": ga_result,
+        "A_k": A_k,
+        "states": states,
+    }
+
+
 def build_wifi_interference_blocks_from_schedule(e: env, scheduled_pair_rows):
     ble_hopping = _load_local_ble_hopping_module()
     ExternalInterferenceBlock = ble_hopping.ExternalInterferenceBlock
@@ -291,8 +378,8 @@ def apply_ble_schedule_backend(e: env, config: dict, external_interference_block
     backend = str(config.get("ble_schedule_backend", getattr(e, "ble_schedule_backend", "legacy")))
     if backend == "legacy":
         return None
-    if backend != "macrocycle_hopping_sdp":
-        raise ValueError("ble_schedule_backend must be 'legacy' or 'macrocycle_hopping_sdp'.")
+    if backend not in {"macrocycle_hopping_sdp", "macrocycle_hopping_ga"}:
+        raise ValueError("ble_schedule_backend must be 'legacy', 'macrocycle_hopping_sdp', or 'macrocycle_hopping_ga'.")
 
     if getattr(e, "ble_channel_mode", "single") != "per_ce":
         e.ble_channel_mode = "per_ce"
@@ -301,7 +388,8 @@ def apply_ble_schedule_backend(e: env, config: dict, external_interference_block
         if getattr(e, "_manual_ble_ce_channel_pairs", None) is None:
             e._manual_ble_ce_channel_pairs = set()
 
-    result = solve_ble_hopping_for_env(
+    solver = solve_ble_hopping_for_env if backend == "macrocycle_hopping_sdp" else solve_ble_hopping_ga_for_env
+    result = solver(
         e=e,
         config=config,
         external_interference_blocks=external_interference_blocks,
@@ -1490,10 +1578,16 @@ def parse_args():
     )
     parser.add_argument(
         "--ble-schedule-backend",
-        choices=["legacy", "macrocycle_hopping_sdp"],
+        choices=["legacy", "macrocycle_hopping_sdp", "macrocycle_hopping_ga"],
         default=None,
-        help="BLE 调度后端：legacy 保持现有方案，macrocycle_hopping_sdp 接入 BLE-only 宏周期跳频 SDP。",
+        help="BLE 调度后端：legacy 保持现有方案，macrocycle_hopping_sdp 接入 BLE-only 宏周期跳频 SDP，macrocycle_hopping_ga 接入 BLE-only 宏周期跳频 GA。",
     )
+    parser.add_argument("--ble-ga-population-size", type=int, default=None, help="BLE GA 种群大小。")
+    parser.add_argument("--ble-ga-generations", type=int, default=None, help="BLE GA 迭代代数。")
+    parser.add_argument("--ble-ga-mutation-rate", type=float, default=None, help="BLE GA 变异概率。")
+    parser.add_argument("--ble-ga-crossover-rate", type=float, default=None, help="BLE GA 交叉概率。")
+    parser.add_argument("--ble-ga-elite-count", type=int, default=None, help="BLE GA 精英保留个数。")
+    parser.add_argument("--ble-ga-seed", type=int, default=None, help="BLE GA 随机种子。")
     parser.add_argument(
         "--ble-max-offsets-per-pair",
         type=int,
@@ -1558,7 +1652,7 @@ if __name__ == "__main__":
         apply_manual_pair_parameters(e, config["pair_parameters"])
     defer_wifi_first_ble_backend = bool(
         config["wifi_first_ble_scheduling"]
-        and config["ble_schedule_backend"] == "macrocycle_hopping_sdp"
+        and config["ble_schedule_backend"] in {"macrocycle_hopping_sdp", "macrocycle_hopping_ga"}
     )
     if not defer_wifi_first_ble_backend:
         apply_ble_schedule_backend(e, config)

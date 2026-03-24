@@ -3,6 +3,7 @@ import io
 import contextlib
 import importlib.util
 import inspect
+import json
 import pathlib
 import sys
 import tempfile
@@ -53,6 +54,55 @@ class EventBlockExpansionTest(unittest.TestCase):
         self.assertEqual(len(config.pair_configs), 4)
         self.assertEqual(config.plot_title, "BLE Event Grid")
         self.assertTrue(config.output_path.name.endswith(".png"))
+
+    def test_merge_or_load_config_accepts_ga_solver_fields(self):
+        config = {
+            "solver": "ga",
+            "ga_population_size": 24,
+            "ga_generations": 30,
+            "ga_mutation_rate": 0.15,
+            "ga_crossover_rate": 0.8,
+            "ga_elite_count": 2,
+            "ga_seed": 7,
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = pathlib.Path(tmpdir) / "ga-config.json"
+            config_path.write_text(json.dumps(config))
+
+            merged = MODULE.merge_or_load_config(config_path)
+
+        self.assertEqual(merged["solver"], "ga")
+        self.assertEqual(merged["ga_population_size"], 24)
+        self.assertEqual(merged["ga_generations"], 30)
+        self.assertEqual(merged["ga_mutation_rate"], 0.15)
+        self.assertEqual(merged["ga_crossover_rate"], 0.8)
+        self.assertEqual(merged["ga_elite_count"], 2)
+        self.assertEqual(merged["ga_seed"], 7)
+
+    def test_parse_args_accepts_solver_flag(self):
+        args = MODULE.parse_args(["--solver", "ga"])
+        self.assertEqual(args.solver, "ga")
+
+    def test_run_ble_macrocycle_hopping_sdp_dispatches_to_ga_without_cvxpy(self):
+        fake_ga_result = mock.Mock()
+        fake_ga_result.selected = {0: MODULE.CandidateState(pair_id=0, offset=0, pattern_id=0)}
+        fake_ga_result.blocks = []
+        fake_ga_result.overlap_blocks = []
+        fake_ga_result.collision_cost = 0.0
+        fake_ga_result.best_fitness = 0.0
+
+        with mock.patch("ble_macrocycle_hopping_ga.solve_ble_hopping_schedule_ga", return_value=fake_ga_result) as solve_mock, \
+             mock.patch.object(MODULE, "render_event_grid"), \
+             mock.patch.object(MODULE, "print_selected_schedule"), \
+             mock.patch.object(MODULE, "print_event_block_table"), \
+             mock.patch.object(MODULE, "require_cvxpy", side_effect=AssertionError("require_cvxpy should not be called for GA")):
+            result = MODULE.run_ble_macrocycle_hopping_sdp(None, solver_override="ga")
+
+        solve_mock.assert_called_once()
+        self.assertIs(result["ga_result"], fake_ga_result)
+        self.assertEqual(result["total_collision"], 0.0)
+
 
     def test_build_ble_advertising_idle_blocks_cover_three_band_centers(self):
         idle_blocks = MODULE.build_ble_advertising_idle_blocks(24)

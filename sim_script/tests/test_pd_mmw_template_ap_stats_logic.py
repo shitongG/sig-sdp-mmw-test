@@ -18,6 +18,7 @@ from sim_script.pd_mmw_template_ap_stats import (
     merge_config_with_defaults,
     strip_comment_keys,
     solve_ble_hopping_for_env,
+    solve_ble_hopping_ga_for_env,
 )
 from sim_src.env.env import env, sample_ble_pair_timing
 
@@ -429,6 +430,28 @@ def test_merge_config_with_defaults_accepts_macrocycle_hopping_ble_backend():
     assert merged["ble_schedule_backend"] == "macrocycle_hopping_sdp"
 
 
+def test_merge_config_with_defaults_accepts_macrocycle_hopping_ga_backend():
+    merged = merge_config_with_defaults(
+        {
+            "ble_schedule_backend": "macrocycle_hopping_ga",
+            "ble_ga_population_size": 16,
+            "ble_ga_generations": 20,
+            "ble_ga_mutation_rate": 0.1,
+            "ble_ga_crossover_rate": 0.85,
+            "ble_ga_elite_count": 2,
+            "ble_ga_seed": 11,
+        }
+    )
+
+    assert merged["ble_schedule_backend"] == "macrocycle_hopping_ga"
+    assert merged["ble_ga_population_size"] == 16
+    assert merged["ble_ga_generations"] == 20
+    assert merged["ble_ga_mutation_rate"] == 0.1
+    assert merged["ble_ga_crossover_rate"] == 0.85
+    assert merged["ble_ga_elite_count"] == 2
+    assert merged["ble_ga_seed"] == 11
+
+
 def test_merge_config_with_defaults_accepts_ble_candidate_summary_keys():
     merged = merge_config_with_defaults(
         {
@@ -604,6 +627,68 @@ def test_build_wifi_first_ble_external_interference_blocks_runs_wifi_first_assig
     assert calls["blocks"]["rows"][0]["radio"] == "wifi"
 
 
+
+
+def test_apply_ble_schedule_backend_macrocycle_hopping_ga_calls_solver_and_writes_channels(monkeypatch):
+    class DummyEnv:
+        def __init__(self):
+            self.ble_schedule_backend = "macrocycle_hopping_ga"
+            self.ble_channel_mode = "per_ce"
+            self.ble_channel_count = 37
+            self.RADIO_BLE = 1
+            self.pair_radio_type = np.array([1], dtype=int)
+            self.pair_channel = np.array([8], dtype=int)
+            self.pair_ble_ci_slots = np.array([16], dtype=int)
+            self.pair_ble_ce_slots = np.array([2], dtype=int)
+            self.pair_ble_anchor_slot = np.array([0], dtype=int)
+            self.pair_release_time_slot = np.array([0], dtype=int)
+            self.pair_deadline_slot = np.array([63], dtype=int)
+            self.pair_ble_ce_feasible = np.array([True], dtype=bool)
+            self.pair_ble_ce_channels = {}
+            self.compute_macrocycle_slots = lambda: 16
+            self.set_ble_ce_channel_map_called_with = None
+
+        def set_ble_ce_channel_map(self, channel_map):
+            self.set_ble_ce_channel_map_called_with = channel_map
+
+    dummy = DummyEnv()
+    fake_result = {
+        "ce_channel_map": {0: np.array([5, 9], dtype=int)},
+        "selected": {0: object()},
+        "blocks": [],
+        "overlap_blocks": [],
+        "objective_value": 0.0,
+        "ga_result": object(),
+    }
+    calls = {}
+
+    def fake_solver(**kwargs):
+        calls["kwargs"] = kwargs
+        return fake_result
+
+    monkeypatch.setattr("sim_script.pd_mmw_template_ap_stats.solve_ble_hopping_ga_for_env", fake_solver)
+
+    external_blocks = [object()]
+    result = apply_ble_schedule_backend(
+        dummy,
+        {
+            "ble_schedule_backend": "macrocycle_hopping_ga",
+            "ble_ga_population_size": 16,
+            "ble_ga_generations": 20,
+            "ble_ga_mutation_rate": 0.1,
+            "ble_ga_crossover_rate": 0.85,
+            "ble_ga_elite_count": 2,
+            "ble_ga_seed": 11,
+        },
+        external_interference_blocks=external_blocks,
+    )
+
+    assert calls["kwargs"]["e"] is dummy
+    assert calls["kwargs"]["config"]["ble_schedule_backend"] == "macrocycle_hopping_ga"
+    assert calls["kwargs"]["config"]["ble_ga_population_size"] == 16
+    assert calls["kwargs"]["external_interference_blocks"] is external_blocks
+    assert result is fake_result
+    assert dummy.set_ble_ce_channel_map_called_with == fake_result["ce_channel_map"]
 
 
 def test_apply_ble_schedule_backend_macrocycle_hopping_calls_solver_and_writes_channels(monkeypatch):

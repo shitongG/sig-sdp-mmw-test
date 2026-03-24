@@ -94,6 +94,13 @@ class ExternalInterferenceBlock:
 @dataclass(frozen=True)
 class BLEStandaloneConfig:
     config_path: Optional[Path]
+    solver: str
+    ga_population_size: int
+    ga_generations: int
+    ga_mutation_rate: float
+    ga_crossover_rate: float
+    ga_elite_count: int
+    ga_seed: int
     num_channels: int
     pair_configs: List[PairConfig]
     cfg_dict: Dict[int, PairConfig]
@@ -553,6 +560,37 @@ def strip_comment_keys(obj: Any) -> Any:
     return obj
 
 
+def merge_or_load_config(config_source: Optional[Any]) -> Dict[str, Any]:
+    """Load a JSON config or normalize a config mapping with GA defaults."""
+    defaults: Dict[str, Any] = {
+        "solver": "sdp",
+        "ga_population_size": 24,
+        "ga_generations": 30,
+        "ga_mutation_rate": 0.15,
+        "ga_crossover_rate": 0.8,
+        "ga_elite_count": 2,
+        "ga_seed": 7,
+    }
+
+    if config_source is None:
+        return dict(defaults)
+
+    if isinstance(config_source, (str, Path)):
+        raw = json.loads(Path(config_source).read_text())
+    elif isinstance(config_source, dict):
+        raw = dict(config_source)
+    else:
+        raise TypeError("config_source must be a path, mapping, or None.")
+
+    data = strip_comment_keys(raw)
+    if not isinstance(data, dict):
+        raise ValueError("Standalone BLE config must be a JSON object.")
+
+    merged = dict(defaults)
+    merged.update(data)
+    return merged
+
+
 def parse_pair_weight_map(raw_pair_weight: Any) -> Dict[Tuple[int, int], float]:
     """Parse optional pair-weight encodings from JSON."""
     if raw_pair_weight in (None, {}):
@@ -591,10 +629,7 @@ def parse_pair_weight_map(raw_pair_weight: Any) -> Dict[Tuple[int, int], float]:
 
 def load_ble_standalone_config(config_path: Path) -> BLEStandaloneConfig:
     """Load the standalone BLE-only JSON config used by the demo script."""
-    raw = json.loads(Path(config_path).read_text())
-    data = strip_comment_keys(raw)
-    if not isinstance(data, dict):
-        raise ValueError("Standalone BLE config must be a JSON object.")
+    data = merge_or_load_config(config_path)
 
     num_channels = int(data.get("num_channels", BLE_DATA_CHANNEL_COUNT))
     hard_collision_threshold = data.get("hard_collision_threshold", None)
@@ -627,6 +662,13 @@ def load_ble_standalone_config(config_path: Path) -> BLEStandaloneConfig:
 
     return BLEStandaloneConfig(
         config_path=Path(config_path).resolve(),
+        solver=str(data.get("solver", "sdp")),
+        ga_population_size=int(data.get("ga_population_size", 24)),
+        ga_generations=int(data.get("ga_generations", 30)),
+        ga_mutation_rate=float(data.get("ga_mutation_rate", 0.15)),
+        ga_crossover_rate=float(data.get("ga_crossover_rate", 0.8)),
+        ga_elite_count=int(data.get("ga_elite_count", 2)),
+        ga_seed=int(data.get("ga_seed", 7)),
         num_channels=num_channels,
         pair_configs=pair_configs,
         cfg_dict=cfg_dict,
@@ -643,6 +685,13 @@ def build_demo_standalone_config() -> BLEStandaloneConfig:
     pair_configs, cfg_dict, pattern_dict, pair_weight, num_channels = build_demo_instance()
     return BLEStandaloneConfig(
         config_path=None,
+        solver="sdp",
+        ga_population_size=24,
+        ga_generations=30,
+        ga_mutation_rate=0.15,
+        ga_crossover_rate=0.8,
+        ga_elite_count=2,
+        ga_seed=7,
         num_channels=num_channels,
         pair_configs=pair_configs,
         cfg_dict=cfg_dict,
@@ -654,11 +703,29 @@ def build_demo_standalone_config() -> BLEStandaloneConfig:
     )
 
 
-def resolve_standalone_config(config_path: Optional[Path]) -> BLEStandaloneConfig:
+def resolve_standalone_config(config_path: Optional[Path], solver_override: Optional[str] = None) -> BLEStandaloneConfig:
     """Resolve either the JSON config path or the built-in demo fallback."""
-    if config_path is None:
-        return build_demo_standalone_config()
-    return load_ble_standalone_config(Path(config_path))
+    runtime = build_demo_standalone_config() if config_path is None else load_ble_standalone_config(Path(config_path))
+    if solver_override is None:
+        return runtime
+    return BLEStandaloneConfig(
+        config_path=runtime.config_path,
+        solver=str(solver_override),
+        ga_population_size=runtime.ga_population_size,
+        ga_generations=runtime.ga_generations,
+        ga_mutation_rate=runtime.ga_mutation_rate,
+        ga_crossover_rate=runtime.ga_crossover_rate,
+        ga_elite_count=runtime.ga_elite_count,
+        ga_seed=runtime.ga_seed,
+        num_channels=runtime.num_channels,
+        pair_configs=runtime.pair_configs,
+        cfg_dict=runtime.cfg_dict,
+        pattern_dict=runtime.pattern_dict,
+        pair_weight=runtime.pair_weight,
+        hard_collision_threshold=runtime.hard_collision_threshold,
+        plot_title=runtime.plot_title,
+        output_path=runtime.output_path,
+    )
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
@@ -668,6 +735,12 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         type=Path,
         default=None,
         help="Path to a JSON config file such as ble_macrocycle_hopping_sdp_config.json",
+    )
+    parser.add_argument(
+        "--solver",
+        choices=("sdp", "ga"),
+        default="sdp",
+        help="Select the solver path to configure.",
     )
     return parser.parse_args(argv)
 
@@ -1066,13 +1139,11 @@ def build_demo_instance():
     return pair_configs, cfg_dict, pattern_dict, pair_weight, num_channels
 
 
-def run_ble_macrocycle_hopping_sdp(config_path: Optional[Path] = None) -> Dict[str, Any]:
+def run_ble_macrocycle_hopping_sdp(config_path: Optional[Path] = None, solver_override: Optional[str] = None) -> Dict[str, Any]:
     """
     Solve and render the BLE-only schedule either from a JSON config or from the demo fallback.
     """
-    require_cvxpy()
-
-    runtime = resolve_standalone_config(config_path)
+    runtime = resolve_standalone_config(config_path, solver_override=solver_override)
     pair_configs = runtime.pair_configs
     cfg_dict = runtime.cfg_dict
     pattern_dict = runtime.pattern_dict
@@ -1092,6 +1163,51 @@ def run_ble_macrocycle_hopping_sdp(config_path: Optional[Path] = None) -> Dict[s
         print(f"idx={idx:2d} -> (pair={st.pair_id}, offset={st.offset}, pattern={st.pattern_id})")
     print()
 
+    if runtime.solver == "ga":
+        import ble_macrocycle_hopping_ga as ga
+
+        print("=" * 72)
+        print("开始求解 GA")
+        print("=" * 72)
+        ga_result = ga.solve_ble_hopping_schedule_ga(
+            candidate_states=states,
+            cfg_dict=cfg_dict,
+            pattern_dict=pattern_dict,
+            num_channels=num_channels,
+            pair_ids=pair_ids,
+            pair_weight=pair_weight,
+            population_size=runtime.ga_population_size,
+            generations=runtime.ga_generations,
+            mutation_rate=runtime.ga_mutation_rate,
+            crossover_rate=runtime.ga_crossover_rate,
+            elite_count=runtime.ga_elite_count,
+            seed=runtime.ga_seed,
+        )
+        selected = ga_result.selected
+        blocks = ga_result.blocks
+        overlap_blocks = ga_result.overlap_blocks
+        total_collision = ga_result.collision_cost
+
+        print(f"GA 最优适应度: {ga_result.best_fitness:.4f}")
+        print_selected_schedule(selected, cfg_dict, pattern_dict, num_channels)
+        print_event_block_table(blocks)
+        print("=" * 72)
+        print(f"GA 离散调度的总碰撞代价: {total_collision:.4f}")
+        print("=" * 72)
+        render_event_grid(blocks, overlap_blocks, runtime.output_path, title=runtime.plot_title)
+        print(f"调度图已保存: {runtime.output_path}")
+        return {
+            "runtime": runtime,
+            "states": states,
+            "state_to_idx": state_to_idx,
+            "A_k": A_k,
+            "selected": selected,
+            "blocks": blocks,
+            "overlap_blocks": overlap_blocks,
+            "total_collision": total_collision,
+            "ga_result": ga_result,
+        }
+
     Omega = build_collision_matrix(
         states=states,
         cfg_dict=cfg_dict,
@@ -1107,6 +1223,7 @@ def run_ble_macrocycle_hopping_sdp(config_path: Optional[Path] = None) -> Dict[s
     print(np.array_str(Omega[:max_show, :max_show], precision=2, suppress_small=True))
     print()
 
+    require_cvxpy()
     problem, Y = build_sdp_relaxation(
         pair_ids=pair_ids,
         A_k=A_k,
@@ -1184,7 +1301,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         6. 打印结果
     """
     args = parse_args(argv)
-    run_ble_macrocycle_hopping_sdp(args.config)
+    run_ble_macrocycle_hopping_sdp(args.config, solver_override=args.solver)
 
 
 if __name__ == "__main__":
