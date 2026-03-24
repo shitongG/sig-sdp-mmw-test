@@ -82,6 +82,16 @@ class EventBlock:
 
 
 @dataclass(frozen=True)
+class ExternalInterferenceBlock:
+    start_slot: int
+    end_slot: int
+    freq_low_mhz: float
+    freq_high_mhz: float
+    source_type: str
+    source_pair_id: int
+
+
+@dataclass(frozen=True)
 class BLEStandaloneConfig:
     config_path: Optional[Path]
     num_channels: int
@@ -311,6 +321,78 @@ def build_ble_advertising_idle_blocks(max_slot: int) -> List[EventBlock]:
         )
         for freq in BLE_ADVERTISING_CENTER_FREQ_MHZ
     ]
+
+
+def _frequency_overlap_mhz(low0: float, high0: float, low1: float, high1: float) -> float:
+    return max(0.0, min(high0, high1) - max(low0, low1))
+
+
+def external_interference_cost_for_state(
+    state: CandidateState,
+    cfg_dict: Dict[int, PairConfig],
+    pattern_dict: Dict[int, List[HoppingPattern]],
+    num_channels: int,
+    interference_blocks: Optional[List[ExternalInterferenceBlock]] = None,
+) -> float:
+    interference_blocks = interference_blocks or []
+    if not interference_blocks:
+        return 0.0
+
+    blocks = build_event_blocks(
+        selected={state.pair_id: state},
+        cfg_dict=cfg_dict,
+        pattern_dict=pattern_dict,
+        num_channels=num_channels,
+    )
+
+    total = 0.0
+    for block in blocks:
+        block_low = float(block.frequency_mhz - 1.0)
+        block_high = float(block.frequency_mhz + 1.0)
+        for ext in interference_blocks:
+            time_overlap = max(0, min(block.end_slot, ext.end_slot) - max(block.start_slot, ext.start_slot) + 1)
+            if time_overlap <= 0:
+                continue
+            freq_overlap = _frequency_overlap_mhz(block_low, block_high, ext.freq_low_mhz, ext.freq_high_mhz)
+            if freq_overlap <= 0.0:
+                continue
+            total += float(time_overlap)
+    return total
+
+
+def build_external_interference_cost_vector(
+    states: List[CandidateState],
+    cfg_dict: Dict[int, PairConfig],
+    pattern_dict: Dict[int, List[HoppingPattern]],
+    num_channels: int,
+    interference_blocks: Optional[List[ExternalInterferenceBlock]] = None,
+) -> np.ndarray:
+    return np.asarray([
+        external_interference_cost_for_state(
+            state=state,
+            cfg_dict=cfg_dict,
+            pattern_dict=pattern_dict,
+            num_channels=num_channels,
+            interference_blocks=interference_blocks,
+        )
+        for state in states
+    ], dtype=float)
+
+
+def build_external_interference_forbidden_state_indices(
+    pair_ids: List[int],
+    A_k: Dict[int, List[int]],
+    candidate_external_cost: np.ndarray,
+) -> List[int]:
+    candidate_external_cost = np.asarray(candidate_external_cost, dtype=float)
+    forbidden = []
+    for pair_id in pair_ids:
+        indices = [int(idx) for idx in A_k[int(pair_id)]]
+        if not indices:
+            continue
+        if any(candidate_external_cost[idx] <= 0.0 for idx in indices):
+            forbidden.extend(idx for idx in indices if candidate_external_cost[idx] > 0.0)
+    return forbidden
 
 
 def build_overlap_blocks(blocks: List[EventBlock]) -> List[EventBlock]:
@@ -672,6 +754,8 @@ def build_sdp_relaxation(
     pair_ids: List[int],
     A_k: Dict[int, List[int]],
     Omega: np.ndarray,
+    candidate_external_cost: Optional[np.ndarray] = None,
+    forbidden_state_indices: Optional[List[int]] = None,
     hard_collision_threshold: Optional[float] = None,
 ) -> Tuple["cvxpy.Problem", "cvxpy.Variable"] | Tuple[Any, Any]:
     """
@@ -713,8 +797,14 @@ def build_sdp_relaxation(
                     constraints.append(Y[i, j] == 0)
                     constraints.append(Y[j, i] == 0)
 
+    forbidden_state_indices = [] if forbidden_state_indices is None else [int(idx) for idx in forbidden_state_indices]
+    for idx in forbidden_state_indices:
+        constraints.append(diagY[idx] == 0)
+
     # 只保留上三角，避免双层标量累加带来的 CVXPY 子表达式膨胀。
     objective_expr = cp.sum(cp.multiply(np.triu(Omega, k=1), Y))
+    if candidate_external_cost is not None:
+        objective_expr = objective_expr + cp.sum(cp.multiply(np.asarray(candidate_external_cost, dtype=float), diagY))
 
     problem = cp.Problem(cp.Minimize(objective_expr), constraints)
     return problem, Y
@@ -774,6 +864,7 @@ def solve_ble_hopping_schedule(
     states: List[CandidateState],
     num_channels: int,
     pair_weight: Optional[Dict[Tuple[int, int], float]] = None,
+    external_interference_blocks: Optional[List[ExternalInterferenceBlock]] = None,
     hard_collision_threshold: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Solve the BLE hopping SDP and return the rounded discrete schedule."""
@@ -785,10 +876,24 @@ def solve_ble_hopping_schedule(
         num_channels=num_channels,
         pair_weight=pair_weight,
     )
+    candidate_external_cost = build_external_interference_cost_vector(
+        states=states,
+        cfg_dict=cfg_dict,
+        pattern_dict=pattern_dict,
+        num_channels=num_channels,
+        interference_blocks=external_interference_blocks,
+    )
+    forbidden_state_indices = build_external_interference_forbidden_state_indices(
+        pair_ids=pair_ids,
+        A_k=A_k,
+        candidate_external_cost=candidate_external_cost,
+    )
     problem, Y = build_sdp_relaxation(
         pair_ids=pair_ids,
         A_k=A_k,
         Omega=Omega,
+        candidate_external_cost=candidate_external_cost,
+        forbidden_state_indices=forbidden_state_indices,
         hard_collision_threshold=hard_collision_threshold,
     )
     problem.solve(solver=cp.SCS, verbose=False)

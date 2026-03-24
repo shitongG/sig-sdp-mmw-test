@@ -18,7 +18,7 @@
   "_comment_ble_channel_retries": "对未调度 BLE pair 重新选信道并重试宏周期排布的次数",
   "ble_channel_retries": 0,
   "_comment_ble_channel_mode": "BLE 信道模式：single 为每 pair 单信道，per_ce 为每个 CE 独立信道",
-  "ble_channel_mode": "single",
+  "ble_channel_mode": "per_ce",
   "_comment_ble_schedule_backend": "BLE 调度后端：legacy 保持现有方案，macrocycle_hopping_sdp 接入 BLE-only 宏周期跳频 SDP",
   "ble_schedule_backend": "macrocycle_hopping_sdp",
   "_comment_ble_max_offsets_per_pair": "BLE 候选状态剪枝上限；每个 BLE pair 最多保留多少个可行 offset",

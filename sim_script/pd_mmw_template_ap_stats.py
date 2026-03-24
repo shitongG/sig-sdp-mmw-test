@@ -212,7 +212,11 @@ def build_ble_hopping_inputs_from_env(e: env):
     return pair_configs, cfg_dict, pattern_dict, num_channels
 
 
-def solve_ble_hopping_for_env(e: env, config: dict | None = None):
+def solve_ble_hopping_for_env(
+    e: env,
+    config: dict | None = None,
+    external_interference_blocks=None,
+):
     ble_hopping = _load_local_ble_hopping_module()
     build_candidate_states = ble_hopping.build_candidate_states
     print_candidate_summary = ble_hopping.print_candidate_summary
@@ -253,10 +257,37 @@ def solve_ble_hopping_for_env(e: env, config: dict | None = None):
         num_channels=num_channels,
         pair_weight=None,
         hard_collision_threshold=None,
+        external_interference_blocks=external_interference_blocks,
     )
 
 
-def apply_ble_schedule_backend(e: env, config: dict):
+def build_wifi_interference_blocks_from_schedule(e: env, scheduled_pair_rows):
+    ble_hopping = _load_local_ble_hopping_module()
+    ExternalInterferenceBlock = ble_hopping.ExternalInterferenceBlock
+
+    blocks = []
+    for row in scheduled_pair_rows:
+        if row.get("radio") != "wifi":
+            continue
+        if int(row.get("schedule_slot", -1)) < 0:
+            continue
+        pair_id = int(row["pair_id"])
+        low_hz, high_hz = e._get_pair_link_range_hz(pair_id)
+        for slot in row.get("occupied_slots_in_macrocycle", []):
+            blocks.append(
+                ExternalInterferenceBlock(
+                    start_slot=int(slot),
+                    end_slot=int(slot),
+                    freq_low_mhz=float(low_hz / 1e6),
+                    freq_high_mhz=float(high_hz / 1e6),
+                    source_type="wifi",
+                    source_pair_id=pair_id,
+                )
+            )
+    return blocks
+
+
+def apply_ble_schedule_backend(e: env, config: dict, external_interference_blocks=None):
     backend = str(config.get("ble_schedule_backend", getattr(e, "ble_schedule_backend", "legacy")))
     if backend == "legacy":
         return None
@@ -270,10 +301,30 @@ def apply_ble_schedule_backend(e: env, config: dict):
         if getattr(e, "_manual_ble_ce_channel_pairs", None) is None:
             e._manual_ble_ce_channel_pairs = set()
 
-    result = solve_ble_hopping_for_env(e=e, config=config)
+    result = solve_ble_hopping_for_env(
+        e=e,
+        config=config,
+        external_interference_blocks=external_interference_blocks,
+    )
     if result.get("ce_channel_map") and hasattr(e, "set_ble_ce_channel_map"):
         e.set_ble_ce_channel_map(result["ce_channel_map"])
     return result
+
+
+def build_wifi_first_ble_external_interference_blocks(e: env, preferred_slots: np.ndarray):
+    starts, macrocycle_slots, occupancy, _ = assign_macrocycle_start_slots(
+        e,
+        preferred_slots,
+        allow_partial=True,
+        wifi_first=True,
+    )
+    pair_rows = compute_pair_parameter_rows(
+        e,
+        starts,
+        occupancy,
+        macrocycle_slots,
+    )
+    return build_wifi_interference_blocks_from_schedule(e, pair_rows)
 
 
 def resolve_runtime_config(args):
@@ -1505,7 +1556,12 @@ if __name__ == "__main__":
     )
     if config["pair_generation_mode"] == "manual":
         apply_manual_pair_parameters(e, config["pair_parameters"])
-    apply_ble_schedule_backend(e, config)
+    defer_wifi_first_ble_backend = bool(
+        config["wifi_first_ble_scheduling"]
+        and config["ble_schedule_backend"] == "macrocycle_hopping_sdp"
+    )
+    if not defer_wifi_first_ble_backend:
+        apply_ble_schedule_backend(e, config)
 
     print("n_pair =", e.n_pair)
     print("n_device =", 2 * e.n_pair)
@@ -1598,6 +1654,14 @@ if __name__ == "__main__":
             weighted_bler = float(e.evaluate_weighted_bler(z_vec_pref, Z_fin_mmw))
         print("MMW result:", Z_fin_mmw, remainder, avg_bler, max_bler, weighted_bler)
         z_vec = np.asarray(z_vec_pref, dtype=int)
+        if defer_wifi_first_ble_backend:
+            wifi_interference_blocks = build_wifi_first_ble_external_interference_blocks(e, z_vec)
+            print("wifi_interference_blocks =", len(wifi_interference_blocks))
+            apply_ble_schedule_backend(
+                e,
+                config,
+                external_interference_blocks=wifi_interference_blocks,
+            )
         if config["wifi_first_ble_scheduling"]:
             schedule_start_slots, macrocycle_slots, occupancy, macro_unscheduled, ble_channel_retries_used, ble_slot_stats = (
                 retry_ble_channels_and_assign_macrocycle(

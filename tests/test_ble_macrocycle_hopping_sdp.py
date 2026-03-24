@@ -62,6 +62,64 @@ class EventBlockExpansionTest(unittest.TestCase):
         self.assertTrue(all(block.start_slot == 0 for block in idle_blocks))
         self.assertTrue(all(block.end_slot == 23 for block in idle_blocks))
 
+    def test_external_interference_cost_is_positive_when_wifi_block_overlaps_ble_event(self):
+        cfg = MODULE.PairConfig(
+            pair_id=0,
+            release_time=0,
+            deadline=7,
+            connect_interval=4,
+            event_duration=2,
+            num_events=1,
+        )
+        pattern = MODULE.HoppingPattern(pattern_id=0, start_channel=0, hop_increment=0)
+        interference = [
+            MODULE.ExternalInterferenceBlock(
+                start_slot=0,
+                end_slot=1,
+                freq_low_mhz=2402.0,
+                freq_high_mhz=2422.0,
+                source_type="wifi",
+                source_pair_id=99,
+            )
+        ]
+        cost = MODULE.external_interference_cost_for_state(
+            state=MODULE.CandidateState(pair_id=0, offset=0, pattern_id=0),
+            cfg_dict={0: cfg},
+            pattern_dict={0: [pattern]},
+            num_channels=37,
+            interference_blocks=interference,
+        )
+        self.assertGreater(cost, 0.0)
+
+    def test_external_interference_cost_is_zero_without_time_frequency_overlap(self):
+        cfg = MODULE.PairConfig(
+            pair_id=0,
+            release_time=0,
+            deadline=7,
+            connect_interval=4,
+            event_duration=2,
+            num_events=1,
+        )
+        pattern = MODULE.HoppingPattern(pattern_id=0, start_channel=20, hop_increment=0)
+        interference = [
+            MODULE.ExternalInterferenceBlock(
+                start_slot=0,
+                end_slot=1,
+                freq_low_mhz=2402.0,
+                freq_high_mhz=2422.0,
+                source_type="wifi",
+                source_pair_id=99,
+            )
+        ]
+        cost = MODULE.external_interference_cost_for_state(
+            state=MODULE.CandidateState(pair_id=0, offset=4, pattern_id=0),
+            cfg_dict={0: cfg},
+            pattern_dict={0: [pattern]},
+            num_channels=37,
+            interference_blocks=interference,
+        )
+        self.assertEqual(cost, 0.0)
+
     def test_build_sdp_relaxation_objective_is_vectorized(self):
         source = inspect.getsource(MODULE.build_sdp_relaxation)
         self.assertIn("np.triu", source)
@@ -93,6 +151,52 @@ class EventBlockExpansionTest(unittest.TestCase):
 
         vectorized = np.sum(np.triu(omega, k=1) * y_value)
         self.assertAlmostEqual(reference, vectorized)
+
+
+    def test_rounding_prefers_state_with_lower_external_interference_when_ble_ble_cost_equal(self):
+        pair_configs = [
+            MODULE.PairConfig(pair_id=0, release_time=0, deadline=3, connect_interval=4, event_duration=1, num_events=1),
+            MODULE.PairConfig(pair_id=1, release_time=0, deadline=3, connect_interval=4, event_duration=1, num_events=1),
+        ]
+        cfg_dict = {cfg.pair_id: cfg for cfg in pair_configs}
+        pattern_dict = {
+            0: [
+                MODULE.HoppingPattern(pattern_id=0, start_channel=0, hop_increment=0),
+                MODULE.HoppingPattern(pattern_id=1, start_channel=20, hop_increment=0),
+            ],
+            1: [MODULE.HoppingPattern(pattern_id=0, start_channel=30, hop_increment=0)],
+        }
+        states, _, A_k = MODULE.build_candidate_states(pair_configs, pattern_dict)
+        result = MODULE.solve_ble_hopping_schedule(
+            pair_configs=pair_configs,
+            cfg_dict=cfg_dict,
+            pattern_dict=pattern_dict,
+            pair_ids=[0, 1],
+            A_k=A_k,
+            states=states,
+            num_channels=37,
+            external_interference_blocks=[
+                MODULE.ExternalInterferenceBlock(
+                    start_slot=0,
+                    end_slot=0,
+                    freq_low_mhz=2402.0,
+                    freq_high_mhz=2422.0,
+                    source_type="wifi",
+                    source_pair_id=50,
+                )
+            ],
+        )
+        self.assertEqual(result["selected"][0].pattern_id, 1)
+
+    def test_forbidden_state_indices_drop_wifi_overlapping_candidates_when_pair_has_wifi_free_option(self):
+        costs = np.array([2.0, 0.0, 1.0], dtype=float)
+        forbidden = MODULE.build_external_interference_forbidden_state_indices(
+            pair_ids=[0, 1],
+            A_k={0: [0, 1], 1: [2]},
+            candidate_external_cost=costs,
+        )
+        self.assertEqual(forbidden, [0])
+
 
     def test_event_blocks_never_use_ble_advertising_frequencies(self):
         pair_configs, cfg_dict, pattern_dict, _, num_channels = MODULE.build_demo_instance()

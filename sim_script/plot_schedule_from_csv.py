@@ -81,6 +81,16 @@ def build_event_text_annotations(event_spans, min_span_slots=2):
     return annotations
 
 
+def iter_internal_slot_boundaries(span, x0, x1):
+    if span.get("radio") in {"ble_adv_idle", "ble_overlap"}:
+        return []
+    start = int(x0) + 1
+    end = int(x1)
+    if end <= start:
+        return []
+    return list(range(start, end))
+
+
 def render_event_grid_plot(event_spans, output_path, macrocycle_slots, slot_window=None):
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -95,16 +105,29 @@ def render_event_grid_plot(event_spans, output_path, macrocycle_slots, slot_wind
         else:
             x0 = int(span["slot_start"])
             x1 = int(span["slot_end"])
+        width = float(x1 - x0)
+        if width <= 0.0:
+            continue
         rect = Rectangle(
             (x0, float(span["freq_low_mhz"])),
-            max(0.8, x1 - x0),
+            width,
             float(span["freq_high_mhz"]) - float(span["freq_low_mhz"]),
             facecolor=RADIO_COLORS.get(span["radio"], "#4C4C4C"),
-            edgecolor="none",
-            linewidth=0.0,
+            edgecolor="black",
+            linewidth=0.6,
             alpha=0.35 if span["radio"] == "ble_adv_idle" else 0.75,
         )
         ax.add_patch(rect)
+        for boundary_x in iter_internal_slot_boundaries(span, x0, x1):
+            ax.plot(
+                [boundary_x, boundary_x],
+                [float(span["freq_low_mhz"]), float(span["freq_high_mhz"])],
+                color="white" if span["radio"] in {"wifi", "ble"} else "black",
+                linewidth=0.6,
+                alpha=0.9,
+                solid_capstyle="butt",
+                zorder=4,
+            )
 
     for ann in build_event_text_annotations(event_spans):
         if slot_window is not None:
@@ -124,10 +147,10 @@ def render_event_grid_plot(event_spans, output_path, macrocycle_slots, slot_wind
     ax.grid(True, axis="x", alpha=0.15)
     ax.legend(
         handles=[
-            Patch(facecolor=RADIO_COLORS["wifi"], edgecolor="none", alpha=0.75, label="WiFi"),
-            Patch(facecolor=RADIO_COLORS["ble"], edgecolor="none", alpha=0.75, label="BLE"),
-            Patch(facecolor=RADIO_COLORS["ble_overlap"], edgecolor="none", alpha=0.75, label="BLE overlap"),
-            Patch(facecolor=RADIO_COLORS["ble_adv_idle"], edgecolor="none", alpha=0.35, label="BLE adv idle"),
+            Patch(facecolor=RADIO_COLORS["wifi"], edgecolor="black", linewidth=0.6, alpha=0.75, label="WiFi"),
+            Patch(facecolor=RADIO_COLORS["ble"], edgecolor="black", linewidth=0.6, alpha=0.75, label="BLE"),
+            Patch(facecolor=RADIO_COLORS["ble_overlap"], edgecolor="black", linewidth=0.6, alpha=0.75, label="BLE overlap"),
+            Patch(facecolor=RADIO_COLORS["ble_adv_idle"], edgecolor="black", linewidth=0.6, alpha=0.35, label="BLE adv idle"),
         ],
         loc="upper right",
         frameon=True,

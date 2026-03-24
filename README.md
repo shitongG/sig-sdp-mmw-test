@@ -100,6 +100,8 @@ pip install -r requirements.txt
 
 当 `ble_schedule_backend = macrocycle_hopping_sdp` 时，主脚本会调用 [ble_macrocycle_hopping_sdp.py](/data/home/Jie_Wan/mycode/sig-sdp-mmw-test/ble_macrocycle_hopping_sdp.py) 的 BLE-only 宏周期跳频调度器。
 
+当 `wifi_first_ble_scheduling = true` 时，主脚本会先按 WiFi-first 规则得到已调度 WiFi pair 的 `(slot, freq range)` 占用，再把这些占用展开成外部干扰块 `ExternalInterferenceBlock`，送入 BLE-only hopping SDP。这样 BLE 候选 state 会优先选取未被已调度 WiFi 占用的时频资源块；如果某个 BLE pair 至少存在一个零 WiFi 重叠的 candidate state，那么所有与 WiFi 重叠的 candidate state 会被直接禁止。
+
 下面把它按论文里的 Problem Formulation 风格整理。
 
 #### 3.3.1 问题定义
@@ -214,6 +216,14 @@ a = (k, s, \ell), \quad b = (j, s', \ell')
 
 代码中的 $\Omega$ 就是对所有 candidate state 两两预计算得到的碰撞矩阵。
 
+若 WiFi 已先完成调度，还会额外构造外部干扰块集合 $\mathcal{W}$。对任一 candidate state $a$，定义其 WiFi 外部干扰代价：
+
+```math
+\Gamma_a = \sum_{b \in \mathcal{W}} \mathbf{1}\{ F(a) \cap F(b) \neq \varnothing \}\; | T(a) \cap T(b) |
+```
+
+其中 $T(a)$ 和 $F(a)$ 分别表示 candidate state $a$ 在宏周期展开后的时间占用与频谱占用。当前实现里，$\Gamma_a$ 会以对角代价的形式并入 SDP 目标；并且只要某个 BLE pair 仍存在 $\Gamma_a = 0$ 的候选状态，就会把同一 pair 内所有 $\Gamma_a > 0$ 的候选状态直接禁止。
+
 #### 3.3.6 离散优化与 lifted SDP 松弛
 
 如果直接做离散选择，可以写成：
@@ -233,7 +243,7 @@ a = (k, s, \ell), \quad b = (j, s', \ell')
 程序中采用的是 lifted SDP 松弛，令 $Y$ 为对称矩阵变量，并最小化：
 
 ```math
-\min \sum_{a < b} \Omega_{ab} Y_{ab}
+\min \sum_{a < b} \Omega_{ab} Y_{ab} + \sum_a \Gamma_a Y_{aa}
 ```
 
 满足：

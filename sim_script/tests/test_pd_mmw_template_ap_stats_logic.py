@@ -12,6 +12,8 @@ from sim_script.pd_mmw_template_ap_stats import (
     build_pair_parameter_rows,
     build_ble_hopping_inputs_from_env,
     build_schedule_rows,
+    build_wifi_first_ble_external_interference_blocks,
+    build_wifi_interference_blocks_from_schedule,
     load_json_config,
     merge_config_with_defaults,
     strip_comment_keys,
@@ -475,6 +477,135 @@ def test_apply_ble_schedule_backend_legacy_is_noop():
     assert dummy.called is False
 
 
+def test_build_wifi_interference_blocks_from_schedule_uses_wifi_slot_and_frequency_ranges():
+    class DummyEnv:
+        RADIO_WIFI = 0
+        RADIO_BLE = 1
+
+        def __init__(self):
+            self.pair_radio_type = np.array([self.RADIO_WIFI], dtype=int)
+            self.pair_channel = np.array([0], dtype=int)
+            self._get_pair_link_range_hz = lambda pair_id: (2402.0e6, 2422.0e6)
+
+    blocks = build_wifi_interference_blocks_from_schedule(
+        DummyEnv(),
+        [
+            {
+                "pair_id": 0,
+                "radio": "wifi",
+                "schedule_slot": 0,
+                "occupied_slots_in_macrocycle": [0, 1],
+            }
+        ],
+    )
+
+    assert len(blocks) == 2
+    assert blocks[0].start_slot == 0
+    assert blocks[0].end_slot == 0
+    assert blocks[0].freq_low_mhz == 2402.0
+    assert blocks[0].freq_high_mhz == 2422.0
+    assert blocks[0].source_type == "wifi"
+    assert blocks[0].source_pair_id == 0
+
+
+def test_build_wifi_interference_blocks_ignores_unscheduled_or_non_wifi_pairs():
+    class DummyEnv:
+        RADIO_WIFI = 0
+        RADIO_BLE = 1
+
+        def __init__(self):
+            self.pair_radio_type = np.array([self.RADIO_WIFI, self.RADIO_BLE], dtype=int)
+            self.pair_channel = np.array([0, 10], dtype=int)
+            self._get_pair_link_range_hz = lambda pair_id: (2402.0e6, 2422.0e6) if int(pair_id) == 0 else (2436.0e6, 2438.0e6)
+
+    blocks = build_wifi_interference_blocks_from_schedule(
+        DummyEnv(),
+        [
+            {
+                "pair_id": 0,
+                "radio": "wifi",
+                "schedule_slot": -1,
+                "occupied_slots_in_macrocycle": [0, 1],
+            },
+            {
+                "pair_id": 1,
+                "radio": "ble",
+                "schedule_slot": 0,
+                "occupied_slots_in_macrocycle": [0, 1],
+            },
+        ],
+    )
+
+    assert blocks == []
+
+
+def test_build_wifi_first_ble_external_interference_blocks_runs_wifi_first_assignment(monkeypatch):
+    class DummyEnv:
+        pass
+
+    dummy = DummyEnv()
+    calls = {}
+
+    def fake_assign(e, preferred_slots, allow_partial=False, wifi_first=False, **kwargs):
+        calls["assign"] = {
+            "e": e,
+            "preferred_slots": np.asarray(preferred_slots, dtype=int).copy(),
+            "allow_partial": allow_partial,
+            "wifi_first": wifi_first,
+        }
+        return (
+            np.array([0, -1], dtype=int),
+            8,
+            np.array([[True, False, False, False, False, False, False, False], [False] * 8], dtype=bool),
+            [1],
+        )
+
+    def fake_rows(e, z_vec, occupied_slots, macrocycle_slots, ble_slot_stats=None):
+        calls["rows"] = {
+            "e": e,
+            "z_vec": np.asarray(z_vec, dtype=int).copy(),
+            "occupied_slots": np.asarray(occupied_slots, dtype=bool).copy(),
+            "macrocycle_slots": macrocycle_slots,
+        }
+        return [
+            {
+                "pair_id": 0,
+                "radio": "wifi",
+                "schedule_slot": 0,
+                "occupied_slots_in_macrocycle": [0],
+            },
+            {
+                "pair_id": 1,
+                "radio": "ble",
+                "schedule_slot": -1,
+                "occupied_slots_in_macrocycle": [],
+            },
+        ]
+
+    expected_blocks = [object()]
+
+    def fake_blocks(e, rows):
+        calls["blocks"] = {"e": e, "rows": rows}
+        return expected_blocks
+
+    monkeypatch.setattr("sim_script.pd_mmw_template_ap_stats.assign_macrocycle_start_slots", fake_assign)
+    monkeypatch.setattr("sim_script.pd_mmw_template_ap_stats.compute_pair_parameter_rows", fake_rows)
+    monkeypatch.setattr("sim_script.pd_mmw_template_ap_stats.build_wifi_interference_blocks_from_schedule", fake_blocks)
+
+    preferred_slots = np.array([3, 5], dtype=int)
+    result = build_wifi_first_ble_external_interference_blocks(dummy, preferred_slots)
+
+    assert result is expected_blocks
+    assert calls["assign"]["e"] is dummy
+    assert calls["assign"]["allow_partial"] is True
+    assert calls["assign"]["wifi_first"] is True
+    assert np.array_equal(calls["assign"]["preferred_slots"], preferred_slots)
+    assert calls["rows"]["macrocycle_slots"] == 8
+    assert calls["blocks"]["rows"][0]["radio"] == "wifi"
+
+
+
+
 def test_apply_ble_schedule_backend_macrocycle_hopping_calls_solver_and_writes_channels(monkeypatch):
     class DummyEnv:
         def __init__(self):
@@ -513,10 +644,16 @@ def test_apply_ble_schedule_backend_macrocycle_hopping_calls_solver_and_writes_c
 
     monkeypatch.setattr("sim_script.pd_mmw_template_ap_stats.solve_ble_hopping_for_env", fake_solver)
 
-    result = apply_ble_schedule_backend(dummy, {"ble_max_offsets_per_pair": 4, "ble_log_candidate_summary": True})
+    external_blocks = [object()]
+    result = apply_ble_schedule_backend(
+        dummy,
+        {"ble_max_offsets_per_pair": 4, "ble_log_candidate_summary": True},
+        external_interference_blocks=external_blocks,
+    )
 
     assert calls["kwargs"]["e"] is dummy
     assert calls["kwargs"]["config"]["ble_max_offsets_per_pair"] == 4
+    assert calls["kwargs"]["external_interference_blocks"] is external_blocks
     assert result is fake_result
     assert dummy.set_ble_ce_channel_map_called_with == fake_result["ce_channel_map"]
 
