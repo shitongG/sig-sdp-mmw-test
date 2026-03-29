@@ -351,7 +351,7 @@ Y \succeq 0
 SDP 解得到的是松弛矩阵 $Y$，当前实现使用 $\mathrm{diag}(Y)$ 做简单 rounding：
 
 - 对每个 pair $k$
-- 在 $`\mathcal{A}_k`$ 中选择 $`Y_{aa}`$ 最大的 candidate state $`a`$
+- 在 $\mathcal{A}_k$ 中选择 $Y_{aa}$ 最大的 candidate state $a$
 
 它不是最强的 rounding 方法，但足够适合当前的 prototype / experimental workflow。
 
@@ -587,6 +587,10 @@ python ble_macrocycle_hopping_sdp.py \
 - `ble_log_candidate_summary`
 - `ble_channel_retries`
 - `wifi_first_ble_scheduling`
+- `wifi_ble_coordination_mode`
+- `wifi_ble_coordination_rounds`
+- `wifi_ble_coordination_top_k_wifi_pairs`
+- `wifi_ble_coordination_candidate_start_limit`
 - `output_dir`
 
 ### 6.2 manual 模式
@@ -726,6 +730,34 @@ Y \succeq 0,
 #### 为什么必须区分这两类量
 
 输入参数描述“任务需求与场景约束”，优化变量描述“调度器实际搜索和决定的量”。例如，deadline、payload、CI/CE 候选、WiFi 周期参数属于输入；offset、pattern、每个 event 的信道序列、是否接纳某个任务则属于优化器输出。对论文表达而言，这个区分能避免把“实验给定条件”和“算法可调决策”混为一谈。
+
+### 6.4 WiFi-BLE 迭代协调变量
+
+除 BLE backend 自身的参数外，主线 `sim_script/pd_mmw_template_ap_stats.py` 还提供了一组控制 WiFi-first 局部协调强度的变量：
+
+```math
+\Theta_{\mathrm{coord}} =
+\{
+\texttt{wifi\_ble\_coordination\_mode},\,
+\texttt{wifi\_ble\_coordination\_rounds},\,
+\texttt{wifi\_ble\_coordination\_top\_k\_wifi\_pairs},\,
+\texttt{wifi\_ble\_coordination\_candidate\_start\_limit}
+\}.
+```
+
+其中：
+- `wifi_ble_coordination_mode = off | iterative` 控制是否在 WiFi-first 基线之后启用局部迭代协调；
+- `wifi_ble_coordination_rounds` 控制最多执行多少轮局部重排；
+- `wifi_ble_coordination_top_k_wifi_pairs` 控制每轮最多分析多少个“最阻塞 BLE 的关键 WiFi pair”；
+- `wifi_ble_coordination_candidate_start_limit` 控制每个关键 WiFi pair 每轮最多尝试多少个替代起始时隙。
+
+这组变量不改变业务输入本身，而是改变 WiFi-first 主流程中的局部搜索预算。当前实现对每个候选重排都施加硬约束：
+
+```math
+N_{\mathrm{wifi}}(x') \ge N_{\mathrm{wifi}}(x^{\mathrm{base}})
+```
+
+也就是说，局部重排只允许在“不降低已调度 WiFi 数量”的前提下尝试释放更多 BLE 可行空间。这也是 `output_ga_wifi_reschedule/` 那组启发式实验的主线控制逻辑。
 
 ## 7. 当前信道建模
 
@@ -876,38 +908,38 @@ python sim_script/pd_mmw_template_ap_stats.py \
 
 ### 11.1 问题定义
 
-`joint_sched/` 把 WiFi pair 和 BLE pair 统一看成任务集合 $`\mathcal{K}`$。每个任务 $`k \in \mathcal{K}`$ 给定：
+`joint_sched/` 把 WiFi pair 和 BLE pair 统一看成任务集合 $\mathcal{K}$。每个任务 $k \in \mathcal{K}$ 给定：
 
-- 无线介质类型 $`m_k \in \{\mathrm{wifi}, \mathrm{ble}\}`$
-- 业务负载 $`b_k`$
-- 最早允许开始时隙 $`r_k`$
-- 最晚完成时隙 $`D_k`$
+- 无线介质类型 $m_k \in \{\mathrm{wifi}, \mathrm{ble}\}$
+- 业务负载 $b_k$
+- 最早允许开始时隙 $r_k$
+- 最晚完成时隙 $D_k$
 
 对于 WiFi 任务，候选状态还需要决定：
-- 起始 offset $`s_k`$
-- WiFi 信道 $`c_k \in \{1,6,11\}`$（代码里对应索引 `{0,5,10}`）
-- 发送宽度 $`w_k`$（slot 数）
-- 周期参数 $`p_k`$
-- 宏周期内重复次数 $`M_k^{\mathrm{wifi}}`$
+- 起始 offset $s_k$
+- WiFi 信道 $c_k \in \{1,6,11\}$（代码里对应索引 `{0,5,10}`）
+- 发送宽度 $w_k$（slot 数）
+- 周期参数 $p_k$
+- 宏周期内重复次数 $M_k^{\mathrm{wifi}}$
 
 对于 BLE 任务，候选状态还需要决定：
-- 起始 offset $`s_k`$
-- 初始 data channel $`c_k \in \{0,\ldots,36\}`$
-- hopping pattern 编号 $`\ell_k`$
-- `CI` $`\Delta_k`$
-- `CE` 宽度 $`d_k`$
-- 宏周期内 event 数 $`M_k`$
+- 起始 offset $s_k$
+- 初始 data channel $c_k \in \{0,\ldots,36\}$
+- hopping pattern 编号 $\ell_k$
+- `CI` $\Delta_k$
+- `CE` 宽度 $d_k$
+- 宏周期内 event 数 $M_k$
 
 这里的联合调度目标是：在统一宏周期内，为 WiFi 和 BLE 共同选择一组无碰撞的状态组合，并在“业务负载收益”和“时频占用代价”之间做平衡。这样求解器不会单纯为了多调度若干个窄任务，就放弃高负载但占用更宽的 WiFi 任务。
 
 ### 11.2 联合候选状态与空状态
 
-对每个任务 $`k`$，构造其候选状态集合 $`\mathcal{A}_k`$。其中：
+对每个任务 $k$，构造其候选状态集合 $\mathcal{A}_k$。其中：
 
-- WiFi 候选状态写成 $`a = (k, \mathrm{wifi}, s, c, p, w, M^{\mathrm{wifi}})`$
-- BLE 候选状态写成 $`a = (k, \mathrm{ble}, s, c, \ell, \Delta, d, M)`$
+- WiFi 候选状态写成 $a = (k, \mathrm{wifi}, s, c, p, w, M^{\mathrm{wifi}})$
+- BLE 候选状态写成 $a = (k, \mathrm{ble}, s, c, \ell, \Delta, d, M)$
 
-除此之外，每个任务还额外加入一个空状态 $`\varnothing_k`$，表示该任务在本轮联合调度中不被安排。于是实际候选集合为：
+除此之外，每个任务还额外加入一个空状态 $\varnothing_k$，表示该任务在本轮联合调度中不被安排。于是实际候选集合为：
 
 ```math
 \tilde{\mathcal{A}}_k = \mathcal{A}_k \cup \{\varnothing_k\}
@@ -920,9 +952,9 @@ python sim_script/pd_mmw_template_ap_stats.py \
 
 ### 11.3 统一时频块展开与硬冲突判定
 
-对任意 candidate state $`a`$，都展开成一个时频资源块集合 $`\mathcal{B}(a)`$。
+对任意 candidate state $a$，都展开成一个时频资源块集合 $\mathcal{B}(a)$。
 
-对 WiFi 状态 $`a = (k, \mathrm{wifi}, s, c, p, w, M^{\mathrm{wifi}})`$，其第 $`m`$ 个周期事件占用为：
+对 WiFi 状态 $a = (k, \mathrm{wifi}, s, c, p, w, M^{\mathrm{wifi}})$，其第 $m$ 个周期事件占用为：
 
 ```math
 \tau_{k,m}(a) = s + mp, \qquad J_{k,m}(a) = [\tau_{k,m}(a),\, \tau_{k,m}(a) + w)
@@ -934,15 +966,15 @@ python sim_script/pd_mmw_template_ap_stats.py \
 \mathcal{B}(a) = \bigcup_{m=0}^{M^{\mathrm{wifi}}-1} \left\{ J_{k,m}(a) \times [f_c - 10,\, f_c + 10] \right\}
 ```
 
-其中 $`f_c`$ 是 WiFi 信道中心频率，带宽固定为 `20 MHz`。
+其中 $f_c$ 是 WiFi 信道中心频率，带宽固定为 `20 MHz`。
 
-对 BLE 状态 $`a = (k, \mathrm{ble}, s, c, \ell, \Delta, d, M)`$，第 $`m`$ 个 `CE` 的时隙区间为：
+对 BLE 状态 $a = (k, \mathrm{ble}, s, c, \ell, \Delta, d, M)$，第 $m$ 个 `CE` 的时隙区间为：
 
 ```math
 t_{k,m}(a) = s + m\Delta, \qquad I_{k,m}(a) = [t_{k,m}(a),\, t_{k,m}(a) + d)
 ```
 
-第 $`m`$ 个 `CE` 的 data channel 由 hopping rule 给出：
+第 $m$ 个 `CE` 的 data channel 由 hopping rule 给出：
 
 ```math
 h_{k,m}(a) = H(c, \ell, m)
@@ -956,7 +988,7 @@ h_{k,m}(a) = H(c, \ell, m)
 
 其中每个 BLE data channel 的带宽固定为 `2 MHz`，且只允许落在 `37` 个 BLE data channel 上，不允许跳到广播信道 `2402 / 2426 / 2480 MHz`。
 
-对两个候选状态 $`a`$ 与 $`b`$，若存在任意一对资源块在时间和频率上都有正重叠，则定义它们硬冲突：
+对两个候选状态 $a$ 与 $b$，若存在任意一对资源块在时间和频率上都有正重叠，则定义它们硬冲突：
 
 ```math
 \exists B_a \in \mathcal{B}(a),\; \exists B_b \in \mathcal{B}(b)
@@ -974,13 +1006,13 @@ h_{k,m}(a) = H(c, \ell, m)
 \tilde{\mathcal{A}} = \bigcup_{k \in \mathcal{K}} \tilde{\mathcal{A}}_k
 ```
 
-设 $`n = |\tilde{\mathcal{A}}|`$，并用 lifted 变量 $`Y \in \mathbb{S}_+^n`$ 表示 SDP 松弛。定义对角元：
+设 $n = |\tilde{\mathcal{A}}|$，并用 lifted 变量 $Y \in \mathbb{S}_+^n$ 表示 SDP 松弛。定义对角元：
 
 ```math
 y_a = Y_{aa}
 ```
 
-其中 $`y_a`$ 近似表示状态 $`a`$ 被选中的程度。
+其中 $y_a$ 近似表示状态 $a$ 被选中的程度。
 
 #### 11.4.1 一任务一状态约束
 
@@ -1019,7 +1051,7 @@ Y = Y^\top, \qquad Y \succeq 0
 
 #### 11.4.3 硬无碰撞约束
 
-若状态对 $`(a,b)`$ 属于禁止集合 $`\mathcal{F}`$，即它们在统一时频块展开后发生重叠，则直接加入硬约束：
+若状态对 $(a,b)$ 属于禁止集合 $\mathcal{F}$，即它们在统一时频块展开后发生重叠，则直接加入硬约束：
 
 ```math
 Y_{ab} = 0,
@@ -1036,13 +1068,13 @@ Y_{ab} = 0,
 1. 先最大化总已调度数据量
 2. 在总数据量相同或足够接近时，再最小化碎片和空闲谱面积
 
-记染色体或 rounding 后的联合解为 $`x`$，其总已调度数据量定义为：
+记染色体或 rounding 后的联合解为 $x$，其总已调度数据量定义为：
 
 ```math
 P(x) = \sum_{k=1}^{K} b_k \cdot \mathbf{1}[x_k \neq \varnothing_k]
 ```
 
-其中 $`b_k`$ 是任务 $`k`$ 的 payload bytes，$`\varnothing_k`$ 表示任务未被调度。
+其中 $b_k$ 是任务 $k$ 的 payload bytes，$\varnothing_k$ 表示任务未被调度。
 
 记填充代价为：
 
@@ -1051,21 +1083,21 @@ F(x) = \mu_1 \mathrm{Frag}(x) + \mu_2 \mathrm{Idle}(x) + \mu_3 \mathrm{Span}(x)
 ```
 
 其中：
-- $`\mathrm{Frag}(x)`$ 表示联合排布在时间轴上的碎片度
-- $`\mathrm{Idle}(x)`$ 表示包络盒内部未被使用的空闲时频面积
-- $`\mathrm{Span}(x)`$ 表示最终调度跨越的总时间范围
-- $`\mu_1, \mu_2, \mu_3 > 0`$ 是填充阶段的惩罚系数
+- $\mathrm{Frag}(x)$ 表示联合排布在时间轴上的碎片度
+- $\mathrm{Idle}(x)$ 表示包络盒内部未被使用的空闲时频面积
+- $\mathrm{Span}(x)$ 表示最终调度跨越的总时间范围
+- $\mu_1, \mu_2, \mu_3 > 0$ 是填充阶段的惩罚系数
 
-实现中允许一个 payload tie window $`\varepsilon`$。于是联合 SDP 的第二阶段可写成：
+实现中允许一个 payload tie window $\varepsilon$。于是联合 SDP 的第二阶段可写成：
 
 ```math
 x^\star = \arg\min F(x)
 \quad \text{s.t.} \quad P(x) \ge P^\star - \varepsilon
 ```
 
-其中 $`P^\star`$ 是第一阶段“最大 payload”问题的最优值。
+其中 $P^\star$ 是第一阶段“最大 payload”问题的最优值。
 
-对 lifted SDP 变量 $`Y`$，当前实现采用两阶段求解：
+对 lifted SDP 变量 $Y$，当前实现采用两阶段求解：
 
 第一阶段：
 
@@ -1073,7 +1105,7 @@ x^\star = \arg\min F(x)
 \max_{Y \succeq 0} \sum_{a \in \tilde{\mathcal{A}}} p_a y_a
 ```
 
-其中 $`p_a = b_{k(a)}`$ 若状态 $`a`$ 为真实调度状态，否则 $`p_a = 0`$。
+其中 $p_a = b_{k(a)}$ 若状态 $a$ 为真实调度状态，否则 $p_a = 0$。
 
 第二阶段：
 
@@ -1087,7 +1119,7 @@ x^\star = \arg\min F(x)
 \sum_{a \in \tilde{\mathcal{A}}} p_a y_a \ge P^\star - \varepsilon
 ```
 
-其中 $`f_a`$ 是状态级填充代价近似，代码里由每个 candidate state 的跨度、重复跳频跨度和面积代理项组成。
+其中 $f_a$ 是状态级填充代价近似，代码里由每个 candidate state 的跨度、重复跳频跨度和面积代理项组成。
 
 这样做的好处是：
 - 第一阶段先把“总承载数据量”钉住
@@ -1105,8 +1137,8 @@ P_{\mathrm{wifi}}(x) \ge P_{\mathrm{wifi}}^{\min}
 ```
 
 其中：
-- $`P_{\mathrm{wifi}}(x)`$ 表示联合解 $`x`$ 中所有已调度 WiFi 任务的 payload 总和
-- $`P_{\mathrm{wifi}}^{\min}`$ 可以直接来自配置项 `wifi_payload_floor_bytes`
+- $P_{\mathrm{wifi}}(x)$ 表示联合解 $x$ 中所有已调度 WiFi 任务的 payload 总和
+- $P_{\mathrm{wifi}}^{\min}$ 可以直接来自配置项 `wifi_payload_floor_bytes`
 - 对 `HGA` 而言，还会进一步抬高为启发式种子解中的 WiFi payload，避免局部重排把 WiFi 越调越少
 
 因此在 `GA/HGA` 中，候选解的比较顺序改为：
@@ -1147,9 +1179,9 @@ b_k^{\mathrm{wifi}}
 ```
 
 这里：
-- $`\mathcal{K}_{\mathrm{wifi}}^{\mathrm{scheduled}}`$ 表示主线输出里 `schedule_slot \ge 0` 的 WiFi pair 集合
-- $`b_k^{\mathrm{wifi}}`$ 采用联合模型自身的 payload 语义，即每个 WiFi 任务的 `payload_bytes`
-- 在当前 faithful 适配中，`b_k^{\mathrm{wifi}} = w_k \cdot \rho_{\mathrm{wifi}}`$，其中 $`w_k`$ 是 `wifi_tx_slots`，$`\rho_{\mathrm{wifi}}`$ 是代码中的 `DEFAULT_WIFI_BYTES_PER_SLOT`
+- $\mathcal{K}_{\mathrm{wifi}}^{\mathrm{scheduled}}$ 表示主线输出里 `schedule_slot \ge 0` 的 WiFi pair 集合
+- $b_k^{\mathrm{wifi}}$ 采用联合模型自身的 payload 语义，即每个 WiFi 任务的 `payload_bytes`
+- 在当前 faithful 适配中，$b_k^{\mathrm{wifi}} = w_k \cdot \rho_{\mathrm{wifi}}$，其中 $w_k$ 是 `wifi_tx_slots`，$\rho_{\mathrm{wifi}}$ 是代码中的 `DEFAULT_WIFI_BYTES_PER_SLOT`
 
 于是 faithful `joint_sched` 自动把这个值写回目标配置：
 
@@ -1162,10 +1194,10 @@ P_{\mathrm{wifi}}(x) \ge P_{\mathrm{wifi}}^{\min}
 #### 11.4.7 rounding
 
 SDP 解出后，按任务逐个 rounding：
-- 优先考虑对角元 $`y_a`$ 更大的状态
-- 同时检查它与当前已选状态集合之间是否落在禁止集合 $`\mathcal{F}`$
+- 优先考虑对角元 $y_a$ 更大的状态
+- 同时检查它与当前已选状态集合之间是否落在禁止集合 $\mathcal{F}$
 - 若冲突则跳过，继续尝试该任务的下一候选
-- 如果该任务的真实候选都不可用，则落到空状态 $`\varnothing_k`$
+- 如果该任务的真实候选都不可用，则落到空状态 $\varnothing_k$
 
 最终输出：
 - `selected_states`：成功调度的 WiFi/BLE 状态
@@ -1173,24 +1205,24 @@ SDP 解出后，按任务逐个 rounding：
 
 ### 11.5 统一联合 GA
 
-联合 GA 与联合 SDP 复用完全相同的混合候选状态空间 $`\tilde{\mathcal{A}}_k`$ 和相同的禁止状态对集合 $`\mathcal{F}`$。
+联合 GA 与联合 SDP 复用完全相同的混合候选状态空间 $\tilde{\mathcal{A}}_k$ 和相同的禁止状态对集合 $\mathcal{F}$。
 
 #### 11.5.1 染色体编码
 
-设共有 $`K = |\mathcal{K}|`$ 个任务，则一个染色体写成：
+设共有 $K = |\mathcal{K}|$ 个任务，则一个染色体写成：
 
 ```math
 x = (x_1, x_2, \ldots, x_K)
 ```
 
-其中第 $`k`$ 个基因 $`x_k`$ 是从 $`\tilde{\mathcal{A}}_k`$ 中选中的状态索引。于是一个染色体同时决定了：
+其中第 $k$ 个基因 $x_k$ 是从 $\tilde{\mathcal{A}}_k$ 中选中的状态索引。于是一个染色体同时决定了：
 - 哪些 WiFi pair 被调度
 - 哪些 BLE pair 被调度
 - 哪些 pair 被放入空状态
 
 #### 11.5.2 可行性
 
-若染色体中任意两基因对应的状态对落在 $`\mathcal{F}`$ 中，则该染色体不可行。
+若染色体中任意两基因对应的状态对落在 $\mathcal{F}$ 中，则该染色体不可行。
 
 ```math
 \exists i < j \text{ such that } (x_i, x_j) \in \mathcal{F}
@@ -1202,7 +1234,7 @@ x = (x_1, x_2, \ldots, x_K)
 
 联合 GA 不再使用单个 utility 标量直接排序，而是采用与联合 SDP 一致的词典序比较规则。
 
-对任意染色体 $`x`$，先计算：
+对任意染色体 $x$，先计算：
 
 ```math
 P(x) = \sum_{k=1}^{K} b_k \cdot \mathbf{1}[x_k \neq \varnothing_k]
@@ -1220,10 +1252,10 @@ F(x) = \mu_1 \mathrm{Frag}(x) + \mu_2 \mathrm{Idle}(x) + \mu_3 \mathrm{Span}(x)
 C(x) = \sum_{i<j} \Omega_{x_i x_j}
 ```
 
-若两个染色体 $`x^{(1)}`$ 与 $`x^{(2)}`$ 对比，则当前实现按以下顺序比较：
-1. 若 $`P(x^{(1)}) > P(x^{(2)}) + \varepsilon`$，则 $`x^{(1)}`$ 更优
-2. 若二者 payload 落在 tie window 内，则比较 $`F(x)`$，填充代价更小者更优
-3. 若填充代价仍相同，则比较软代价 $`C(x)`$
+若两个染色体 $x^{(1)}$ 与 $x^{(2)}$ 对比，则当前实现按以下顺序比较：
+1. 若 $P(x^{(1)}) > P(x^{(2)}) + \varepsilon$，则 $x^{(1)}$ 更优
+2. 若二者 payload 落在 tie window 内，则比较 $F(x)$，填充代价更小者更优
+3. 若填充代价仍相同，则比较软代价 $C(x)$
 
 因此 GA 的本质不是“最大化调度数”，而是：
 - 先保住总 payload
@@ -1355,7 +1387,7 @@ P_{\mathrm{wifi}}^{\min} = \sum_{a \in \mathcal{W}_{\mathrm{base}}} p_a
 对 BLE 候选状态 $b$，HGA 计算其对 hole $h_r$ 的 fit score：
 
 ```math
-\phi(b, h_r) = \frac{\operatorname{OverlapArea}(b, h_r)}{\operatorname{Area}(h_r)} - \lambda \, \operatorname{WifiOverlapArea}(b \mid x)
+\phi(b, h_r) = \frac{\mathrm{OverlapArea}(b, h_r)}{\mathrm{Area}(h_r)} - \lambda \, \mathrm{WifiOverlapArea}(b \mid x)
 ```
 
 其中第一项鼓励 BLE 候选填满当前洞，第二项惩罚它重新挤压 protected WiFi 或已选状态。于是 residual seed 会优先把高 $\phi(b, h_r)$ 的 BLE 候选注入 GA 初始种群。
@@ -1391,7 +1423,7 @@ P_{\mathrm{wifi}}^{\min} = \sum_{a \in \mathcal{W}_{\mathrm{base}}} p_a
    对每个 residual hole $h_r$，优先选择 fill ratio 更高的 BLE candidate：
 
 ```math
-\phi(b, h_r) = \frac{\operatorname{OverlapArea}(b, h_r)}{\operatorname{Area}(h_r)} - \lambda \operatorname{WifiOverlapArea}(b \mid x)
+\phi(b, h_r) = \frac{\mathrm{OverlapArea}(b, h_r)}{\mathrm{Area}(h_r)} - \lambda \mathrm{WifiOverlapArea}(b \mid x)
 ```
 
 2. **多 BLE subset replacement**  
@@ -1424,9 +1456,9 @@ x = (a_1, a_2, \ldots, a_{|\mathcal{K}|}), \qquad a_k \in \tilde{\mathcal{A}}_k
 ```
 
 其中：
-- 当 $`k \in \mathcal{K}^{\mathrm{wifi}}`$ 时，$`a_k`$ 是一个完整 WiFi 周期流状态
-- 当 $`k \in \mathcal{K}^{\mathrm{ble}}`$ 时，$`a_k`$ 是一个完整 BLE 跳频状态
-- $`\tilde{\mathcal{A}}_k = \mathcal{A}_k \cup \{\varnothing_k\}`$ 包含空状态
+- 当 $k \in \mathcal{K}^{\mathrm{wifi}}$ 时，$a_k$ 是一个完整 WiFi 周期流状态
+- 当 $k \in \mathcal{K}^{\mathrm{ble}}$ 时，$a_k$ 是一个完整 BLE 跳频状态
+- $\tilde{\mathcal{A}}_k = \mathcal{A}_k \cup \{\varnothing_k\}$ 包含空状态
 
 WiFi 任务状态写成：
 
@@ -1434,7 +1466,7 @@ WiFi 任务状态写成：
 a_k^{\mathrm{wifi}} = (c_k, s_k, T_k, w_k, M_k)
 ```
 
-其中 $`c_k`$ 是 WiFi 信道，$`s_k`$ 是周期流 offset，$`T_k`$ 是周期，$`w_k`$ 是每次发送宽度，$`M_k`$ 是宏周期内重复次数。其占用集合为：
+其中 $c_k$ 是 WiFi 信道，$s_k$ 是周期流 offset，$T_k$ 是周期，$w_k$ 是每次发送宽度，$M_k$ 是宏周期内重复次数。其占用集合为：
 
 ```math
 \mathcal{B}(a_k^{\mathrm{wifi}})
@@ -1453,7 +1485,7 @@ BLE 任务状态写成：
 a_k^{\mathrm{ble}} = (s_k, \ell_k, \Delta_k, d_k, M_k)
 ```
 
-其中 $`s_k`$ 是初始 offset，$`\ell_k`$ 是 hopping pattern，$`\Delta_k`$ 是 `CI`，$`d_k`$ 是 `CE` 宽度，$`M_k`$ 是事件数。其占用集合为：
+其中 $s_k$ 是初始 offset，$\ell_k$ 是 hopping pattern，$\Delta_k$ 是 `CI`，$d_k$ 是 `CE` 宽度，$M_k$ 是事件数。其占用集合为：
 
 ```math
 \mathcal{B}(a_k^{\mathrm{ble}})
@@ -1470,7 +1502,7 @@ a_k^{\mathrm{ble}} = (s_k, \ell_k, \Delta_k, d_k, M_k)
 
 #### 11.6.4 whole-WiFi-state move heuristic
 
-为提高 BLE 对残余谱洞的利用率，当前 `HGA` 不再只在 BLE 侧做 repair，而会显式移动**整个 WiFi 周期流状态**。设当前 WiFi 状态为 $`a_k^{\mathrm{wifi}}`$，其可移动替代集合为：
+为提高 BLE 对残余谱洞的利用率，当前 `HGA` 不再只在 BLE 侧做 repair，而会显式移动**整个 WiFi 周期流状态**。设当前 WiFi 状态为 $a_k^{\mathrm{wifi}}$，其可移动替代集合为：
 
 ```math
 \widetilde{\mathcal{A}}_k^{\mathrm{wifi,move}}
@@ -1484,24 +1516,24 @@ a_k^{\mathrm{ble}} = (s_k, \ell_k, \Delta_k, d_k, M_k)
 
 来尝试释放更多 BLE 可行洞。为估计几何阻塞，启发式会把当前 WiFi `20 MHz` 状态临时展开成 `10` 条 `2 MHz` stripe，但这些 stripe 只是 blocker / hole-fit 评分工具，并不是 `10` 个独立任务。
 
-对候选 WiFi move $`\tilde{a}`$，当前实现按“释放的 BLE pair 数量 + residual-hole 改善”排序，可抽象写成：
+对候选 WiFi move $\tilde{a}$，当前实现按“释放的 BLE pair 数量 + residual-hole 改善”排序，可抽象写成：
 
 ```math
 \psi(\tilde{a}\mid x)
 =
 \alpha \cdot N_{\mathrm{freed}}(\tilde{a}\mid x)
-- \beta \cdot \operatorname{Overlap}(\tilde{a}, \mathcal{H}(x))
+- \beta \cdot \mathrm{Overlap}(\tilde{a}, \mathcal{H}(x))
 + \gamma \cdot \mathbf{1}[c(\tilde{a}) \neq c(a_k)]
 ```
 
 其中：
-- $`N_{\mathrm{freed}}(\tilde{a}\mid x)`$ 表示 move 后新释放的 BLE pair 数量
+- $N_{\mathrm{freed}}(\tilde{a}\mid x)$ 表示 move 后新释放的 BLE pair 数量
 - 第二项惩罚 move 后继续压住残余谱洞的 WiFi 状态
 - 第三项轻度奖励信道切换，避免只在一个局部 offset 上抖动
 
 这些 WiFi move 不会单独决定最终解，而是会被转成新的**联合染色体种子**，再次送回同一个联合 `GA` 内核继续搜索。因此搜索语义仍然是 unified joint scheduling，而不是 `WiFi-first -> BLE`。
 
-在当前版本里，HGA 还额外加入了一步 **direct accept-if-better WiFi local move**。这一步不再只是生成 seed，而是直接对当前 best 联合解中的某个 WiFi 周期流状态做局部替换，然后立即执行一次 BLE repack。记当前解为 $`x`$，替换某个 WiFi 状态后的候选解为 $`x'`$，则只有同时满足：
+在当前版本里，HGA 还额外加入了一步 **direct accept-if-better WiFi local move**。这一步不再只是生成 seed，而是直接对当前 best 联合解中的某个 WiFi 周期流状态做局部替换，然后立即执行一次 BLE repack。记当前解为 $x$，替换某个 WiFi 状态后的候选解为 $x'$，则只有同时满足：
 
 ```math
 P_{\mathrm{wifi}}(x') \ge P_{\mathrm{wifi}}^{\min}

@@ -34,7 +34,7 @@
   "_comment_ble_log_candidate_summary": "是否在 BLE backend 运行前打印候选空间摘要",
   "ble_log_candidate_summary": true,
   "_comment_wifi_first_ble_scheduling": "是否优先调度 WiFi，再调度 BLE。这里保持默认关闭。",
-  "wifi_first_ble_scheduling": false,
+  "wifi_first_ble_scheduling": true,
   "_comment_output_dir": "输出目录；相对路径相对配置文件所在目录解析",
   "output_dir": "macrocycle_output_9wifi_16ble",
   "_comment_pair_parameters": "逐 pair 输入参数；此示例包含 25 对用户对，其中 9 对 WiFi、16 对 BLE，pair_id 连续从 0 到 24。",
@@ -348,5 +348,13 @@
       "ble_anchor_slot": 0,
       "ble_timing_mode": "auto"
     }
-  ]
+  ],
+  "_comment_wifi_ble_coordination_mode": "WiFi-BLE 协调模式：off 保持 WiFi-first，iterative 在不降低已调度 WiFi 数量的前提下，允许局部重排关键 WiFi pair 后再重新调度 BLE",
+  "wifi_ble_coordination_mode": "iterative",
+  "_comment_wifi_ble_coordination_rounds": "WiFi-BLE 迭代协调轮数上限",
+  "wifi_ble_coordination_rounds": 2,
+  "_comment_wifi_ble_coordination_top_k_wifi_pairs": "每轮最多尝试局部重排的关键 WiFi pair 数；这些重排不会被允许降低基线 WiFi 调度数量",
+  "wifi_ble_coordination_top_k_wifi_pairs": 2,
+  "_comment_wifi_ble_coordination_candidate_start_limit": "每个关键 WiFi pair 每轮最多尝试的替代起始时隙数",
+  "wifi_ble_coordination_candidate_start_limit": 2
 }

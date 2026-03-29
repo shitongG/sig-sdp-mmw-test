@@ -627,3 +627,45 @@ def test_schedule_plot_rows_csv_contains_idle_ble_advertising_channels(tmp_path)
     assert "2402" in text
     assert "2426" in text
     assert "2480" in text
+
+
+def test_script_runs_with_iterative_wifi_ble_coordination_json_config(tmp_path):
+    config_path = tmp_path / "iterative_coordination.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "cell_size": 1,
+                "pair_density": 0.05,
+                "seed": 123,
+                "mmw_nit": 5,
+                "mmw_eta": 0.05,
+                "ble_schedule_backend": "legacy",
+                "wifi_first_ble_scheduling": True,
+                "wifi_ble_coordination_mode": "iterative",
+                "wifi_ble_coordination_rounds": 1,
+                "wifi_ble_coordination_top_k_wifi_pairs": 1,
+                "wifi_ble_coordination_candidate_start_limit": 1,
+                "output_dir": "iterative_out"
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), "--config", str(config_path)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "wifi_ble_coordination =" in proc.stdout
+    assert "'mode': 'iterative'" in proc.stdout or '"mode": "iterative"' in proc.stdout
+    assert "baseline_wifi_scheduled" in proc.stdout
+    assert "final_wifi_scheduled" in proc.stdout
+    assert "baseline_ble_scheduled" in proc.stdout
+    assert "final_ble_scheduled" in proc.stdout
+    assert "wifi_floor_enforced" in proc.stdout
+    assert (tmp_path / "iterative_out" / "pair_parameters.csv").exists()

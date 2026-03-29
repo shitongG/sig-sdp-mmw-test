@@ -6,6 +6,7 @@ import pytest
 
 from sim_script.pd_mmw_template_ap_stats import (
     _aggregate_office_stats_from_arrays,
+    _is_better_schedule_attempt,
     _occupancy_within_time_window,
     apply_manual_pair_parameters,
     apply_ble_schedule_backend,
@@ -14,8 +15,12 @@ from sim_script.pd_mmw_template_ap_stats import (
     build_schedule_rows,
     build_wifi_first_ble_external_interference_blocks,
     build_wifi_interference_blocks_from_schedule,
+    build_wifi_local_reshuffle_candidates,
+    diagnose_unscheduled_ble_pairs,
     load_json_config,
     merge_config_with_defaults,
+    run_iterative_wifi_ble_coordination,
+    run_wifi_first_schedule_attempt,
     strip_comment_keys,
     solve_ble_hopping_for_env,
     solve_ble_hopping_ga_for_env,
@@ -957,3 +962,307 @@ def test_wifi_fixed_channels_do_not_cover_ble_advertising_centers():
         low, high = e._get_wifi_channel_range_hz(wifi_idx)
         for adv in e.ble_advertising_center_freq_mhz:
             assert not (low < adv * 1e6 < high)
+
+
+def test_merge_config_with_defaults_accepts_iterative_coordination_keys():
+    merged = merge_config_with_defaults(
+        {
+            "wifi_ble_coordination_mode": "iterative",
+            "wifi_ble_coordination_rounds": 2,
+            "wifi_ble_coordination_top_k_wifi_pairs": 3,
+            "wifi_ble_coordination_candidate_start_limit": 4,
+        }
+    )
+
+    assert merged["wifi_ble_coordination_mode"] == "iterative"
+    assert merged["wifi_ble_coordination_rounds"] == 2
+    assert merged["wifi_ble_coordination_top_k_wifi_pairs"] == 3
+    assert merged["wifi_ble_coordination_candidate_start_limit"] == 4
+
+
+def test_merge_config_with_defaults_rejects_invalid_iterative_coordination_mode():
+    with pytest.raises(ValueError, match="wifi_ble_coordination_mode"):
+        merge_config_with_defaults({"wifi_ble_coordination_mode": "loop"})
+
+
+def test_merge_config_with_defaults_rejects_negative_iterative_coordination_limit():
+    with pytest.raises(ValueError, match="wifi_ble_coordination_rounds"):
+        merge_config_with_defaults({"wifi_ble_coordination_rounds": -1})
+
+
+def test_run_wifi_first_schedule_attempt_returns_structured_result(monkeypatch):
+    class DummyEnv:
+        def __init__(self):
+            self.n_pair = 2
+            self.RADIO_WIFI = 0
+            self.RADIO_BLE = 1
+            self.pair_radio_type = np.array([0, 1], dtype=int)
+            self.pair_priority = np.array([2.0, 1.0], dtype=float)
+
+    dummy = DummyEnv()
+
+    monkeypatch.setattr(
+        "sim_script.pd_mmw_template_ap_stats.build_wifi_first_ble_external_interference_blocks",
+        lambda e, preferred_slots: [{"start_slot": 0}],
+    )
+    monkeypatch.setattr(
+        "sim_script.pd_mmw_template_ap_stats.apply_ble_schedule_backend",
+        lambda e, config, external_interference_blocks=None: {"ce_channel_map": {}},
+    )
+    monkeypatch.setattr(
+        "sim_script.pd_mmw_template_ap_stats.retry_ble_channels_and_assign_macrocycle",
+        lambda e, preferred_slots, max_ble_channel_retries=0, wifi_first=False, return_ble_stats=False: (
+            np.array([0, 1], dtype=int),
+            8,
+            np.array([[True] + [False] * 7, [False, True] + [False] * 6], dtype=bool),
+            [],
+            0,
+            {1: {"effective_ble_channels": 2, "scheduled_ble_pairs": 1, "no_collision_probability": 1.0}},
+        ),
+    )
+    monkeypatch.setattr(
+        "sim_script.pd_mmw_template_ap_stats.compute_pair_parameter_rows",
+        lambda e, starts, occupancy, macrocycle_slots, ble_slot_stats=None: [
+            {"pair_id": 0, "radio": "wifi", "schedule_slot": 0, "occupied_slots_in_macrocycle": [0], "macrocycle_slots": 8},
+            {"pair_id": 1, "radio": "ble", "schedule_slot": 1, "occupied_slots_in_macrocycle": [1], "macrocycle_slots": 8},
+        ],
+    )
+    monkeypatch.setattr(
+        "sim_script.pd_mmw_template_ap_stats.build_schedule_rows",
+        lambda rows: [{"schedule_slot": 0, "pair_ids": [0]}, {"schedule_slot": 1, "pair_ids": [1]}],
+    )
+    monkeypatch.setattr(
+        "sim_script.pd_mmw_template_ap_stats.get_pair_channel_ranges_mhz",
+        lambda e, pair_ids: {0: (2412.0, 2432.0), 1: (2440.0, 2442.0)},
+    )
+    monkeypatch.setattr(
+        "sim_script.pd_mmw_template_ap_stats.build_schedule_plot_rows",
+        lambda pair_rows, pair_channel_ranges, e=None: [],
+    )
+
+    attempt = run_wifi_first_schedule_attempt(
+        dummy,
+        {"ble_schedule_backend": "macrocycle_hopping_sdp", "ble_channel_retries": 0},
+        np.array([0, 1], dtype=int),
+    )
+
+    assert attempt.total_scheduled_count == 2
+    assert attempt.ble_scheduled_count == 1
+    assert attempt.wifi_scheduled_count == 1
+    assert len(attempt.wifi_interference_blocks) == 1
+
+
+def test_diagnose_unscheduled_ble_pairs_reports_wifi_capacity_blocked():
+    class DummyEnv:
+        RADIO_WIFI = 0
+        RADIO_BLE = 1
+
+        def __init__(self):
+            self.pair_radio_type = np.array([0, 1], dtype=int)
+            self.pair_ble_ce_feasible = np.array([True, True], dtype=bool)
+            self.pair_release_time_slot = np.array([0, 0], dtype=int)
+            self.pair_deadline_slot = np.array([7, 7], dtype=int)
+            self._period_slots = np.array([4, 4], dtype=int)
+            self._conflict = np.zeros((2, 2), dtype=bool)
+
+        def get_pair_period_slots(self):
+            return self._period_slots
+
+        def expand_pair_occupancy(self, pair_id, start_slot, macrocycle_slots):
+            occ = np.zeros(macrocycle_slots, dtype=bool)
+            occ[int(start_slot)] = True
+            return occ
+
+        def get_ble_start_slot_capacity(self, wifi_pair_ids, wifi_start_slots, start_slot):
+            return 0
+
+        def build_pair_conflict_matrix(self):
+            return self._conflict
+
+        def is_slot_channel_conflict(self, *args, **kwargs):
+            return False
+
+    dummy = DummyEnv()
+    attempt = type("Attempt", (), {
+        "env_obj": dummy,
+        "scheduled_pair_ids": [0],
+        "unscheduled_pair_ids": [1],
+        "preferred_slots": np.array([0, 0], dtype=int),
+        "schedule_start_slots": np.array([0, -1], dtype=int),
+        "macrocycle_slots": 8,
+        "occupancy": np.array([[True] + [False] * 7, [False] * 8], dtype=bool),
+    })()
+
+    result = diagnose_unscheduled_ble_pairs(attempt)
+
+    assert result["ble_pair_diagnostics"][0]["reason"] == "wifi_capacity_blocked"
+
+
+def test_build_wifi_local_reshuffle_candidates_changes_only_blocking_wifi_pairs():
+    class DummyEnv:
+        RADIO_WIFI = 0
+        RADIO_BLE = 1
+
+        def __init__(self):
+            self.pair_radio_type = np.array([0, 0, 1], dtype=int)
+            self.pair_release_time_slot = np.zeros(3, dtype=int)
+            self.pair_deadline_slot = np.full(3, 7, dtype=int)
+            self._period_slots = np.array([4, 4, 4], dtype=int)
+            self._conflict = np.zeros((3, 3), dtype=bool)
+
+        def get_pair_period_slots(self):
+            return self._period_slots
+
+        def expand_pair_occupancy(self, pair_id, start_slot, macrocycle_slots):
+            occ = np.zeros(macrocycle_slots, dtype=bool)
+            occ[int(start_slot)] = True
+            return occ
+
+        def build_pair_conflict_matrix(self):
+            return self._conflict
+
+    dummy = DummyEnv()
+    attempt = type("Attempt", (), {
+        "env_obj": dummy,
+        "scheduled_pair_ids": [0, 1],
+        "preferred_slots": np.array([0, 1, 2], dtype=int),
+        "schedule_start_slots": np.array([0, 1, -1], dtype=int),
+        "macrocycle_slots": 8,
+        "occupancy": np.array([[True] + [False] * 7, [False, True] + [False] * 6, [False] * 8], dtype=bool),
+    })()
+    diagnostics = {"blocking_wifi_pair_counts": {1: 2}}
+
+    candidates = build_wifi_local_reshuffle_candidates(
+        attempt,
+        diagnostics,
+        {
+            "wifi_ble_coordination_top_k_wifi_pairs": 1,
+            "wifi_ble_coordination_candidate_start_limit": 2,
+        },
+    )
+
+    assert candidates
+    assert all(candidate["pair_id"] == 1 for candidate in candidates)
+    assert all(int(candidate["preferred_slots"][0]) == 0 for candidate in candidates)
+
+
+def test_run_iterative_wifi_ble_coordination_keeps_better_attempt(monkeypatch):
+    class DummyEnv:
+        pass
+
+    baseline = type("Attempt", (), {
+        "total_scheduled_count": 2,
+        "wifi_scheduled_count": 1,
+        "ble_scheduled_count": 1,
+        "overlap_row_count": 0,
+    })()
+    improved = type("Attempt", (), {
+        "total_scheduled_count": 3,
+        "wifi_scheduled_count": 1,
+        "ble_scheduled_count": 2,
+        "overlap_row_count": 0,
+    })()
+
+    calls = {"count": 0}
+
+    def fake_run(e, config, preferred_slots, coordination_round=0, candidate_index=0):
+        calls["count"] += 1
+        return baseline if calls["count"] == 1 else improved
+
+    monkeypatch.setattr("sim_script.pd_mmw_template_ap_stats.run_wifi_first_schedule_attempt", fake_run)
+    monkeypatch.setattr(
+        "sim_script.pd_mmw_template_ap_stats.diagnose_unscheduled_ble_pairs",
+        lambda attempt: {"blocking_wifi_pair_counts": {0: 1}, "ble_pair_diagnostics": []},
+    )
+    monkeypatch.setattr(
+        "sim_script.pd_mmw_template_ap_stats.build_wifi_local_reshuffle_candidates",
+        lambda attempt, diagnostics, config: [{"pair_id": 0, "preferred_slots": np.array([1, 2], dtype=int), "new_start_slot": 1}],
+    )
+
+    best, summary = run_iterative_wifi_ble_coordination(
+        DummyEnv(),
+        {"wifi_ble_coordination_mode": "iterative", "wifi_ble_coordination_rounds": 1},
+        np.array([0, 0], dtype=int),
+    )
+
+    assert best is improved
+    assert summary["improved"] is True
+    assert summary["tested_candidates"] == 1
+
+
+def test_is_better_schedule_attempt_rejects_candidate_that_drops_wifi():
+    baseline = type("Attempt", (), {
+        "total_scheduled_count": 36,
+        "wifi_scheduled_count": 5,
+        "ble_scheduled_count": 31,
+        "overlap_row_count": 0,
+    })()
+    candidate = type("Attempt", (), {
+        "total_scheduled_count": 38,
+        "wifi_scheduled_count": 4,
+        "ble_scheduled_count": 34,
+        "overlap_row_count": 0,
+    })()
+
+    assert not _is_better_schedule_attempt(candidate, baseline, baseline_wifi_count=5)
+
+
+def test_is_better_schedule_attempt_prefers_higher_total_when_wifi_floor_is_kept():
+    baseline = type("Attempt", (), {
+        "total_scheduled_count": 36,
+        "wifi_scheduled_count": 5,
+        "ble_scheduled_count": 31,
+        "overlap_row_count": 0,
+    })()
+    candidate = type("Attempt", (), {
+        "total_scheduled_count": 37,
+        "wifi_scheduled_count": 5,
+        "ble_scheduled_count": 32,
+        "overlap_row_count": 0,
+    })()
+
+    assert _is_better_schedule_attempt(candidate, baseline, baseline_wifi_count=5)
+
+
+def test_run_iterative_wifi_ble_coordination_retains_baseline_when_candidate_drops_wifi(monkeypatch):
+    class DummyEnv:
+        pass
+
+    baseline = type("Attempt", (), {
+        "total_scheduled_count": 36,
+        "wifi_scheduled_count": 5,
+        "ble_scheduled_count": 31,
+        "overlap_row_count": 0,
+    })()
+    dropped_wifi = type("Attempt", (), {
+        "total_scheduled_count": 38,
+        "wifi_scheduled_count": 4,
+        "ble_scheduled_count": 34,
+        "overlap_row_count": 0,
+    })()
+
+    calls = {"count": 0}
+
+    def fake_run(e, config, preferred_slots, coordination_round=0, candidate_index=0):
+        calls["count"] += 1
+        return baseline if calls["count"] == 1 else dropped_wifi
+
+    monkeypatch.setattr("sim_script.pd_mmw_template_ap_stats.run_wifi_first_schedule_attempt", fake_run)
+    monkeypatch.setattr(
+        "sim_script.pd_mmw_template_ap_stats.diagnose_unscheduled_ble_pairs",
+        lambda attempt: {"blocking_wifi_pair_counts": {0: 1}, "ble_pair_diagnostics": []},
+    )
+    monkeypatch.setattr(
+        "sim_script.pd_mmw_template_ap_stats.build_wifi_local_reshuffle_candidates",
+        lambda attempt, diagnostics, config: [{"pair_id": 0, "preferred_slots": np.array([1, 2], dtype=int), "new_start_slot": 1}],
+    )
+
+    best, summary = run_iterative_wifi_ble_coordination(
+        DummyEnv(),
+        {"wifi_ble_coordination_mode": "iterative", "wifi_ble_coordination_rounds": 1},
+        np.array([0, 0], dtype=int),
+    )
+
+    assert best is baseline
+    assert summary["improved"] is False
+    assert summary["tested_candidates"] == 1

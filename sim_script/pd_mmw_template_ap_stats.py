@@ -1,4 +1,5 @@
 import argparse
+import copy
 import csv
 import importlib.util
 import json
@@ -6,6 +7,7 @@ import math
 import os
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -41,9 +43,44 @@ DEFAULT_CONFIG = {
     "ble_ga_seed": 7,
     "output_dir": "sim_script/output",
     "wifi_first_ble_scheduling": False,
+    "wifi_ble_coordination_mode": "off",
+    "wifi_ble_coordination_rounds": 0,
+    "wifi_ble_coordination_top_k_wifi_pairs": 2,
+    "wifi_ble_coordination_candidate_start_limit": 3,
     "pair_generation_mode": "random",
     "pair_parameters": None,
 }
+
+
+@dataclass
+class ScheduleAttemptResult:
+    env_obj: object
+    preferred_slots: np.ndarray
+    schedule_start_slots: np.ndarray
+    macrocycle_slots: int
+    occupancy: np.ndarray
+    unscheduled_pair_ids: list[int]
+    scheduled_pair_ids: list[int]
+    pair_rows: list[dict]
+    schedule_rows: list[dict]
+    ble_channel_retries_used: int
+    ble_slot_stats: dict
+    wifi_interference_blocks: list
+    coordination_round: int = 0
+    candidate_index: int = 0
+    overlap_row_count: int = 0
+
+    @property
+    def total_scheduled_count(self) -> int:
+        return len(self.scheduled_pair_ids)
+
+    @property
+    def ble_scheduled_count(self) -> int:
+        return sum(1 for row in self.pair_rows if row["radio"] == "ble" and int(row["schedule_slot"]) >= 0)
+
+    @property
+    def wifi_scheduled_count(self) -> int:
+        return sum(1 for row in self.pair_rows if row["radio"] == "wifi" and int(row["schedule_slot"]) >= 0)
 
 
 def _load_local_module(filename: str, module_name: str):
@@ -173,6 +210,19 @@ def merge_config_with_defaults(config: dict):
     merged["ble_ga_crossover_rate"] = float(merged["ble_ga_crossover_rate"])
     merged["ble_ga_elite_count"] = int(merged["ble_ga_elite_count"])
     merged["ble_ga_seed"] = int(merged["ble_ga_seed"]) if merged["ble_ga_seed"] is not None else None
+    coordination_mode = str(merged["wifi_ble_coordination_mode"])
+    if coordination_mode not in {"off", "iterative"}:
+        raise ValueError("wifi_ble_coordination_mode must be 'off' or 'iterative'.")
+    merged["wifi_ble_coordination_mode"] = coordination_mode
+    merged["wifi_ble_coordination_rounds"] = int(merged["wifi_ble_coordination_rounds"])
+    merged["wifi_ble_coordination_top_k_wifi_pairs"] = int(merged["wifi_ble_coordination_top_k_wifi_pairs"])
+    merged["wifi_ble_coordination_candidate_start_limit"] = int(merged["wifi_ble_coordination_candidate_start_limit"])
+    if merged["wifi_ble_coordination_rounds"] < 0:
+        raise ValueError("wifi_ble_coordination_rounds must be non-negative.")
+    if merged["wifi_ble_coordination_top_k_wifi_pairs"] < 0:
+        raise ValueError("wifi_ble_coordination_top_k_wifi_pairs must be non-negative.")
+    if merged["wifi_ble_coordination_candidate_start_limit"] < 0:
+        raise ValueError("wifi_ble_coordination_candidate_start_limit must be non-negative.")
     if merged["pair_generation_mode"] not in {"random", "manual"}:
         raise ValueError("pair_generation_mode must be 'random' or 'manual'.")
     if merged["pair_generation_mode"] == "manual":
@@ -413,6 +463,274 @@ def build_wifi_first_ble_external_interference_blocks(e: env, preferred_slots: n
         macrocycle_slots,
     )
     return build_wifi_interference_blocks_from_schedule(e, pair_rows)
+
+
+def _count_overlap_rows(pair_rows, pair_channel_ranges, e: env):
+    plot_rows = build_schedule_plot_rows(pair_rows, pair_channel_ranges, e)
+    return sum(1 for row in plot_rows if row.get("radio") == "ble_overlap")
+
+
+def run_wifi_first_schedule_attempt(
+    e: env,
+    config: dict,
+    preferred_slots: np.ndarray,
+    coordination_round: int = 0,
+    candidate_index: int = 0,
+):
+    working_env = copy.deepcopy(e)
+    wifi_interference_blocks = []
+    if str(config.get("ble_schedule_backend", "legacy")) != "legacy":
+        wifi_interference_blocks = build_wifi_first_ble_external_interference_blocks(working_env, preferred_slots)
+        apply_ble_schedule_backend(
+            working_env,
+            config,
+            external_interference_blocks=wifi_interference_blocks,
+        )
+    schedule_start_slots, macrocycle_slots, occupancy, macro_unscheduled, ble_channel_retries_used, ble_slot_stats = (
+        retry_ble_channels_and_assign_macrocycle(
+            working_env,
+            preferred_slots,
+            max_ble_channel_retries=config.get("ble_channel_retries", 0),
+            wifi_first=True,
+            return_ble_stats=True,
+        )
+    )
+    scheduled_pair_ids, unscheduled_pair_ids = resolve_macrocycle_schedule_status(schedule_start_slots, occupancy)
+    pair_rows = compute_pair_parameter_rows(
+        working_env,
+        schedule_start_slots,
+        occupancy,
+        macrocycle_slots,
+        ble_slot_stats=ble_slot_stats,
+    )
+    schedule_rows = build_schedule_rows(pair_rows)
+    pair_channel_ranges = get_pair_channel_ranges_mhz(working_env, np.arange(working_env.n_pair, dtype=int))
+    overlap_row_count = _count_overlap_rows(pair_rows, pair_channel_ranges, working_env)
+    return ScheduleAttemptResult(
+        env_obj=working_env,
+        preferred_slots=np.asarray(preferred_slots, dtype=int).copy(),
+        schedule_start_slots=np.asarray(schedule_start_slots, dtype=int).copy(),
+        macrocycle_slots=int(macrocycle_slots),
+        occupancy=np.asarray(occupancy, dtype=bool).copy(),
+        unscheduled_pair_ids=list(unscheduled_pair_ids),
+        scheduled_pair_ids=list(scheduled_pair_ids),
+        pair_rows=pair_rows,
+        schedule_rows=schedule_rows,
+        ble_channel_retries_used=int(ble_channel_retries_used),
+        ble_slot_stats=dict(ble_slot_stats),
+        wifi_interference_blocks=list(wifi_interference_blocks),
+        coordination_round=int(coordination_round),
+        candidate_index=int(candidate_index),
+        overlap_row_count=int(overlap_row_count),
+    )
+
+
+def _score_schedule_attempt(attempt: ScheduleAttemptResult):
+    return (
+        int(attempt.wifi_scheduled_count),
+        int(attempt.total_scheduled_count),
+        int(attempt.ble_scheduled_count),
+        -int(attempt.overlap_row_count),
+    )
+
+
+def _is_better_schedule_attempt(
+    candidate: ScheduleAttemptResult,
+    incumbent: ScheduleAttemptResult | None,
+    baseline_wifi_count: int | None = None,
+):
+    if baseline_wifi_count is not None and int(candidate.wifi_scheduled_count) < int(baseline_wifi_count):
+        return False
+    if incumbent is None:
+        return True
+    if baseline_wifi_count is not None and int(incumbent.wifi_scheduled_count) < int(baseline_wifi_count):
+        return True
+    return _score_schedule_attempt(candidate) > _score_schedule_attempt(incumbent)
+
+
+def diagnose_unscheduled_ble_pairs(attempt: ScheduleAttemptResult):
+    e = attempt.env_obj
+    diagnostics = []
+    blocking_wifi_counts = {}
+    scheduled_ids = set(int(pair_id) for pair_id in attempt.scheduled_pair_ids)
+    period_slots = e.get_pair_period_slots()
+    for pair_id in attempt.unscheduled_pair_ids:
+        pair_id = int(pair_id)
+        if int(e.pair_radio_type[pair_id]) != int(e.RADIO_BLE):
+            continue
+        if not bool(e.pair_ble_ce_feasible[pair_id]):
+            diagnostics.append({"pair_id": pair_id, "reason": "ble_ce_infeasible", "blocking_wifi_pair_ids": []})
+            continue
+        period = int(period_slots[pair_id])
+        candidate_starts = _sorted_candidate_starts(period, attempt.preferred_slots[pair_id]) if period > 0 else []
+        saw_time_window = False
+        saw_capacity = False
+        saw_channel_conflict = False
+        saw_slot_conflict = False
+        saw_any_feasible_candidate = False
+        blocking_wifi_pair_ids = []
+        for start_slot in candidate_starts:
+            occ = e.expand_pair_occupancy(pair_id, int(start_slot), int(attempt.macrocycle_slots))
+            if not _occupancy_within_time_window(occ, e.pair_release_time_slot[pair_id], e.pair_deadline_slot[pair_id]):
+                saw_time_window = True
+                continue
+            saw_any_feasible_candidate = True
+            assigned_wifi = np.array(
+                [pid for pid in scheduled_ids if int(e.pair_radio_type[pid]) == int(e.RADIO_WIFI)],
+                dtype=int,
+            )
+            slot_capacity = e.get_ble_start_slot_capacity(
+                wifi_pair_ids=assigned_wifi,
+                wifi_start_slots=attempt.schedule_start_slots[assigned_wifi] if assigned_wifi.size else np.array([], dtype=int),
+                start_slot=int(start_slot),
+            )
+            scheduled_ble_at_start = [
+                pid for pid in scheduled_ids
+                if int(e.pair_radio_type[pid]) == int(e.RADIO_BLE) and int(attempt.schedule_start_slots[pid]) == int(start_slot)
+            ]
+            if len(scheduled_ble_at_start) >= int(slot_capacity):
+                saw_capacity = True
+                continue
+            conflict_found = False
+            for slot in np.where(occ)[0]:
+                for other_pair in scheduled_ids:
+                    if int(other_pair) == pair_id:
+                        continue
+                    if not bool(attempt.occupancy[int(other_pair), int(slot)]):
+                        continue
+                    slot_conflict = bool(e.build_pair_conflict_matrix()[pair_id, int(other_pair)])
+                    channel_conflict = bool(
+                        e.is_slot_channel_conflict(pair_id, int(start_slot), int(other_pair), int(attempt.schedule_start_slots[int(other_pair)]), int(slot))
+                    )
+                    if channel_conflict:
+                        saw_channel_conflict = True
+                        conflict_found = True
+                        if int(e.pair_radio_type[int(other_pair)]) == int(e.RADIO_WIFI):
+                            blocking_wifi_pair_ids.append(int(other_pair))
+                        break
+                    if slot_conflict:
+                        saw_slot_conflict = True
+                        conflict_found = True
+                        if int(e.pair_radio_type[int(other_pair)]) == int(e.RADIO_WIFI):
+                            blocking_wifi_pair_ids.append(int(other_pair))
+                        break
+                if conflict_found:
+                    break
+        if saw_channel_conflict:
+            reason = "channel_conflict"
+        elif saw_slot_conflict:
+            reason = "slot_conflict"
+        elif saw_capacity:
+            reason = "wifi_capacity_blocked"
+        elif not saw_any_feasible_candidate and saw_time_window:
+            reason = "time_window_blocked"
+        else:
+            reason = "no_candidate_after_wifi_filter"
+        unique_blockers = sorted(set(int(pid) for pid in blocking_wifi_pair_ids))
+        for pid in unique_blockers:
+            blocking_wifi_counts[pid] = blocking_wifi_counts.get(pid, 0) + 1
+        diagnostics.append({
+            "pair_id": pair_id,
+            "reason": reason,
+            "blocking_wifi_pair_ids": unique_blockers,
+        })
+    return {
+        "ble_pair_diagnostics": diagnostics,
+        "blocking_wifi_pair_counts": dict(sorted(blocking_wifi_counts.items(), key=lambda item: (-item[1], item[0]))),
+    }
+
+
+def _is_wifi_start_slot_locally_valid(e: env, attempt: ScheduleAttemptResult, pair_id: int, start_slot: int):
+    pair_id = int(pair_id)
+    start_slot = int(start_slot)
+    occ = e.expand_pair_occupancy(pair_id, start_slot, int(attempt.macrocycle_slots))
+    if not _occupancy_within_time_window(occ, e.pair_release_time_slot[pair_id], e.pair_deadline_slot[pair_id]):
+        return False
+    scheduled_wifi = [
+        pid for pid in attempt.scheduled_pair_ids
+        if int(pid) != pair_id and int(e.pair_radio_type[int(pid)]) == int(e.RADIO_WIFI)
+    ]
+    for slot in np.where(occ)[0]:
+        for other_pair in scheduled_wifi:
+            if not bool(attempt.occupancy[int(other_pair), int(slot)]):
+                continue
+            if bool(e.build_pair_conflict_matrix()[pair_id, int(other_pair)]):
+                return False
+    return True
+
+
+def build_wifi_local_reshuffle_candidates(attempt: ScheduleAttemptResult, diagnostics: dict, config: dict):
+    e = attempt.env_obj
+    top_k = int(config.get("wifi_ble_coordination_top_k_wifi_pairs", 0))
+    start_limit = int(config.get("wifi_ble_coordination_candidate_start_limit", 0))
+    if top_k <= 0 or start_limit <= 0:
+        return []
+    ranked_wifi_pairs = [int(pair_id) for pair_id, _ in list(diagnostics.get("blocking_wifi_pair_counts", {}).items())[:top_k]]
+    period_slots = e.get_pair_period_slots()
+    candidates = []
+    seen = set()
+    for pair_id in ranked_wifi_pairs:
+        period = int(period_slots[pair_id])
+        current_start = int(attempt.schedule_start_slots[pair_id])
+        alt_starts = [slot for slot in _sorted_candidate_starts(period, current_start) if int(slot) != current_start][:start_limit]
+        for alt_start in alt_starts:
+            if not _is_wifi_start_slot_locally_valid(e, attempt, pair_id, int(alt_start)):
+                continue
+            preferred = attempt.preferred_slots.copy()
+            preferred[pair_id] = int(alt_start)
+            key = tuple(int(v) for v in preferred.tolist())
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append({
+                "pair_id": int(pair_id),
+                "preferred_slots": preferred,
+                "new_start_slot": int(alt_start),
+            })
+    return candidates
+
+
+def run_iterative_wifi_ble_coordination(e: env, config: dict, preferred_slots: np.ndarray):
+    baseline = run_wifi_first_schedule_attempt(e, config, preferred_slots, coordination_round=0, candidate_index=0)
+    best = baseline
+    baseline_wifi_count = int(baseline.wifi_scheduled_count)
+    max_rounds = int(config.get("wifi_ble_coordination_rounds", 0))
+    if str(config.get("wifi_ble_coordination_mode", "off")) != "iterative" or max_rounds <= 0:
+        return best, {"baseline": baseline, "rounds_executed": 0, "improved": False, "tested_candidates": 0, "wifi_floor_enforced": True}
+
+    total_tested_candidates = 0
+    rounds_executed = 0
+    improved = False
+    for round_idx in range(1, max_rounds + 1):
+        diagnostics = diagnose_unscheduled_ble_pairs(best)
+        candidates = build_wifi_local_reshuffle_candidates(best, diagnostics, config)
+        rounds_executed = round_idx
+        if not candidates:
+            break
+        round_best = best
+        for candidate_idx, candidate in enumerate(candidates, start=1):
+            total_tested_candidates += 1
+            attempt = run_wifi_first_schedule_attempt(
+                e,
+                config,
+                candidate["preferred_slots"],
+                coordination_round=round_idx,
+                candidate_index=candidate_idx,
+            )
+            if _is_better_schedule_attempt(attempt, round_best, baseline_wifi_count=baseline_wifi_count):
+                round_best = attempt
+        if _is_better_schedule_attempt(round_best, best, baseline_wifi_count=baseline_wifi_count):
+            best = round_best
+            improved = True
+        else:
+            break
+    return best, {
+        "baseline": baseline,
+        "rounds_executed": int(rounds_executed),
+        "improved": bool(improved),
+        "tested_candidates": int(total_tested_candidates),
+        "wifi_floor_enforced": True,
+    }
 
 
 def resolve_runtime_config(args):
@@ -1612,6 +1930,15 @@ def parse_args():
         default=None,
         help="先调度 WiFi，再按剩余 BLE 可用物理信道数约束 BLE 起始时隙调度。",
     )
+    parser.add_argument(
+        "--wifi-ble-coordination-mode",
+        choices=["off", "iterative"],
+        default=None,
+        help="WiFi-BLE 协调模式：off 保持 WiFi-first，iterative 允许局部重排已调度 WiFi 后再重新调度 BLE。",
+    )
+    parser.add_argument("--wifi-ble-coordination-rounds", type=int, default=None, help="WiFi-BLE 迭代协调轮数上限。")
+    parser.add_argument("--wifi-ble-coordination-top-k-wifi-pairs", type=int, default=None, help="每轮最多尝试局部重排的关键 WiFi pair 数。")
+    parser.add_argument("--wifi-ble-coordination-candidate-start-limit", type=int, default=None, help="每个关键 WiFi pair 每轮最多尝试的替代起始时隙数。")
     return parser.parse_args()
 
 
@@ -1748,25 +2075,44 @@ if __name__ == "__main__":
             weighted_bler = float(e.evaluate_weighted_bler(z_vec_pref, Z_fin_mmw))
         print("MMW result:", Z_fin_mmw, remainder, avg_bler, max_bler, weighted_bler)
         z_vec = np.asarray(z_vec_pref, dtype=int)
-        if defer_wifi_first_ble_backend:
-            wifi_interference_blocks = build_wifi_first_ble_external_interference_blocks(e, z_vec)
-            print("wifi_interference_blocks =", len(wifi_interference_blocks))
-            apply_ble_schedule_backend(
-                e,
-                config,
-                external_interference_blocks=wifi_interference_blocks,
-            )
+        coordination_summary = None
         if config["wifi_first_ble_scheduling"]:
-            schedule_start_slots, macrocycle_slots, occupancy, macro_unscheduled, ble_channel_retries_used, ble_slot_stats = (
-                retry_ble_channels_and_assign_macrocycle(
-                    e,
-                    z_vec,
-                    max_ble_channel_retries=config["ble_channel_retries"],
-                    wifi_first=True,
-                    return_ble_stats=True,
-                )
+            attempt, coordination_summary = run_iterative_wifi_ble_coordination(e, config, z_vec)
+            e = attempt.env_obj
+            schedule_start_slots = attempt.schedule_start_slots.copy()
+            macrocycle_slots = int(attempt.macrocycle_slots)
+            occupancy = attempt.occupancy.copy()
+            macro_unscheduled = list(attempt.unscheduled_pair_ids)
+            ble_channel_retries_used = int(attempt.ble_channel_retries_used)
+            ble_slot_stats = dict(attempt.ble_slot_stats)
+            scheduled_pair_ids = list(attempt.scheduled_pair_ids)
+            unscheduled_pair_ids = list(attempt.unscheduled_pair_ids)
+            print("wifi_interference_blocks =", len(attempt.wifi_interference_blocks))
+            print(
+                "wifi_ble_coordination =",
+                {
+                    "mode": config.get("wifi_ble_coordination_mode", "off"),
+                    "rounds_executed": int(coordination_summary["rounds_executed"]),
+                    "tested_candidates": int(coordination_summary["tested_candidates"]),
+                    "improved": bool(coordination_summary["improved"]),
+                    "wifi_floor_enforced": bool(coordination_summary.get("wifi_floor_enforced", False)),
+                    "baseline_wifi_scheduled": int(coordination_summary["baseline"].wifi_scheduled_count),
+                    "baseline_ble_scheduled": int(coordination_summary["baseline"].ble_scheduled_count),
+                    "baseline_total_scheduled": int(coordination_summary["baseline"].total_scheduled_count),
+                    "final_wifi_scheduled": int(attempt.wifi_scheduled_count),
+                    "final_ble_scheduled": int(attempt.ble_scheduled_count),
+                    "final_total_scheduled": int(attempt.total_scheduled_count),
+                },
             )
         else:
+            if defer_wifi_first_ble_backend:
+                wifi_interference_blocks = build_wifi_first_ble_external_interference_blocks(e, z_vec)
+                print("wifi_interference_blocks =", len(wifi_interference_blocks))
+                apply_ble_schedule_backend(
+                    e,
+                    config,
+                    external_interference_blocks=wifi_interference_blocks,
+                )
             schedule_start_slots, macrocycle_slots, occupancy, macro_unscheduled, ble_channel_retries_used = (
                 retry_ble_channels_and_assign_macrocycle(
                     e,
@@ -1775,7 +2121,7 @@ if __name__ == "__main__":
                 )
             )
             ble_slot_stats = {}
-        scheduled_pair_ids, unscheduled_pair_ids = resolve_macrocycle_schedule_status(schedule_start_slots, occupancy)
+            scheduled_pair_ids, unscheduled_pair_ids = resolve_macrocycle_schedule_status(schedule_start_slots, occupancy)
         partial_schedule = bool(unscheduled_pair_ids)
         print("macrocycle_slots =", macrocycle_slots)
         print("macrocycle_ms =", float(macrocycle_slots * e.slot_time * 1e3))

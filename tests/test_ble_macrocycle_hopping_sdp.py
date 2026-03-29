@@ -50,6 +50,14 @@ class EventBlockExpansionTest(unittest.TestCase):
         self.assertIn("accept-if-better", readme)
         self.assertIn("whole-WiFi-state move", readme)
 
+    def test_readme_avoids_github_unsupported_math_macros_and_malformed_inline_math(self):
+        readme = pathlib.Path("README.md").read_text(encoding="utf-8")
+
+        self.assertNotIn("\\operatorname{", readme)
+        self.assertNotIn("$`", readme)
+        self.assertNotIn("`$", readme)
+        self.assertIn("\\mathrm{", readme)
+
     def test_build_sdp_relaxation_annotation_does_not_reference_runtime_cp_alias(self):
         return_annotation = MODULE.build_sdp_relaxation.__annotations__["return"]
         self.assertNotIn("cp.", str(return_annotation))
