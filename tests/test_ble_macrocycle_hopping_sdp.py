@@ -25,6 +25,31 @@ SPEC.loader.exec_module(MODULE)
 
 
 class EventBlockExpansionTest(unittest.TestCase):
+    def test_readme_documents_inputs_and_optimization_variables(self):
+        readme = pathlib.Path("README.md").read_text(encoding="utf-8")
+
+        self.assertIn("输入参数与优化变量", readme)
+        self.assertIn("输入参数（Inputs）", readme)
+        self.assertIn("优化变量（Decision Variables）", readme)
+        self.assertIn("主调度脚本", readme)
+        self.assertIn("BLE-only 宏周期跳频求解器", readme)
+        self.assertIn("联合调度模型", readme)
+        self.assertIn("x_k", readme)
+        self.assertIn("s_k", readme)
+        self.assertIn("c_{k,m}", readme)
+        self.assertIn("r_k", readme)
+
+    def test_readme_documents_unified_joint_ga_hga_principles(self):
+        readme = pathlib.Path("README.md").read_text(encoding="utf-8")
+
+        self.assertIn("统一联合 GA", readme)
+        self.assertIn("统一联合 HGA", readme)
+        self.assertIn("染色体编码", readme)
+        self.assertIn("WiFi floor", readme)
+        self.assertIn("residual-hole", readme)
+        self.assertIn("accept-if-better", readme)
+        self.assertIn("whole-WiFi-state move", readme)
+
     def test_build_sdp_relaxation_annotation_does_not_reference_runtime_cp_alias(self):
         return_annotation = MODULE.build_sdp_relaxation.__annotations__["return"]
         self.assertNotIn("cp.", str(return_annotation))

@@ -1,0 +1,417 @@
+pair_id,radio,channel,slot,slot_width,freq_low_mhz,freq_high_mhz,label,event_index
+1,wifi,0,13,1,2402.0,2422.0,wifi-1-ev0,0
+1,wifi,0,14,1,2402.0,2422.0,wifi-1-ev0,0
+1,wifi,0,15,1,2402.0,2422.0,wifi-1-ev0,0
+1,wifi,0,16,1,2402.0,2422.0,wifi-1-ev0,0
+1,wifi,0,17,1,2402.0,2422.0,wifi-1-ev0,0
+1,wifi,0,29,1,2402.0,2422.0,wifi-1-ev1,1
+1,wifi,0,30,1,2402.0,2422.0,wifi-1-ev1,1
+1,wifi,0,31,1,2402.0,2422.0,wifi-1-ev1,1
+1,wifi,0,32,1,2402.0,2422.0,wifi-1-ev1,1
+1,wifi,0,33,1,2402.0,2422.0,wifi-1-ev1,1
+1,wifi,0,45,1,2402.0,2422.0,wifi-1-ev2,2
+1,wifi,0,46,1,2402.0,2422.0,wifi-1-ev2,2
+1,wifi,0,47,1,2402.0,2422.0,wifi-1-ev2,2
+1,wifi,0,48,1,2402.0,2422.0,wifi-1-ev2,2
+1,wifi,0,49,1,2402.0,2422.0,wifi-1-ev2,2
+1,wifi,0,61,1,2402.0,2422.0,wifi-1-ev3,3
+1,wifi,0,62,1,2402.0,2422.0,wifi-1-ev3,3
+1,wifi,0,63,1,2402.0,2422.0,wifi-1-ev3,3
+1,wifi,0,0,1,2402.0,2422.0,wifi-1-ev3,3
+1,wifi,0,1,1,2402.0,2422.0,wifi-1-ev3,3
+5,ble,25,60,1,2455.0,2457.0,ble-5-ev0,0
+5,ble,25,61,1,2455.0,2457.0,ble-5-ev0,0
+5,ble,25,62,1,2455.0,2457.0,ble-5-ev0,0
+5,ble,25,63,1,2455.0,2457.0,ble-5-ev0,0
+6,ble,6,21,1,2415.0,2417.0,ble-6-ev0,0
+6,ble,15,53,1,2435.0,2437.0,ble-6-ev1,1
+7,ble,7,20,1,2417.0,2419.0,ble-7-ev0,0
+7,ble,7,21,1,2417.0,2419.0,ble-7-ev0,0
+7,ble,14,52,1,2433.0,2435.0,ble-7-ev1,1
+7,ble,14,53,1,2433.0,2435.0,ble-7-ev1,1
+11,ble,7,42,1,2417.0,2419.0,ble-11-ev0,0
+12,ble,35,10,1,2475.0,2477.0,ble-12-ev0,0
+12,ble,35,11,1,2475.0,2477.0,ble-12-ev0,0
+12,ble,5,42,1,2413.0,2415.0,ble-12-ev1,1
+12,ble,5,43,1,2413.0,2415.0,ble-12-ev1,1
+16,ble,8,19,1,2419.0,2421.0,ble-16-ev0,0
+16,ble,8,20,1,2419.0,2421.0,ble-16-ev0,0
+16,ble,8,21,1,2419.0,2421.0,ble-16-ev0,0
+16,ble,8,22,1,2419.0,2421.0,ble-16-ev0,0
+16,ble,13,51,1,2431.0,2433.0,ble-16-ev1,1
+16,ble,13,52,1,2431.0,2433.0,ble-16-ev1,1
+16,ble,13,53,1,2431.0,2433.0,ble-16-ev1,1
+16,ble,13,54,1,2431.0,2433.0,ble-16-ev1,1
+18,ble,16,0,1,2437.0,2439.0,ble-18-ev0,0
+18,ble,21,8,1,2447.0,2449.0,ble-18-ev1,1
+18,ble,26,16,1,2457.0,2459.0,ble-18-ev2,2
+19,ble,21,5,1,2447.0,2449.0,ble-19-ev0,0
+19,ble,26,21,1,2457.0,2459.0,ble-19-ev1,1
+19,ble,31,37,1,2467.0,2469.0,ble-19-ev2,2
+19,ble,36,53,1,2477.0,2479.0,ble-19-ev3,3
+21,ble,17,29,1,2439.0,2441.0,ble-21-ev0,0
+21,ble,17,30,1,2439.0,2441.0,ble-21-ev0,0
+21,ble,17,31,1,2439.0,2441.0,ble-21-ev0,0
+21,ble,17,32,1,2439.0,2441.0,ble-21-ev0,0
+21,ble,17,33,1,2439.0,2441.0,ble-21-ev0,0
+21,ble,22,37,1,2449.0,2451.0,ble-21-ev1,1
+21,ble,22,38,1,2449.0,2451.0,ble-21-ev1,1
+21,ble,22,39,1,2449.0,2451.0,ble-21-ev1,1
+21,ble,22,40,1,2449.0,2451.0,ble-21-ev1,1
+21,ble,22,41,1,2449.0,2451.0,ble-21-ev1,1
+21,ble,27,45,1,2459.0,2461.0,ble-21-ev2,2
+21,ble,27,46,1,2459.0,2461.0,ble-21-ev2,2
+21,ble,27,47,1,2459.0,2461.0,ble-21-ev2,2
+21,ble,27,48,1,2459.0,2461.0,ble-21-ev2,2
+21,ble,27,49,1,2459.0,2461.0,ble-21-ev2,2
+25,wifi,5,6,1,2427.0,2447.0,wifi-25-ev0,0
+25,wifi,5,7,1,2427.0,2447.0,wifi-25-ev0,0
+25,wifi,5,8,1,2427.0,2447.0,wifi-25-ev0,0
+25,wifi,5,9,1,2427.0,2447.0,wifi-25-ev0,0
+25,wifi,5,10,1,2427.0,2447.0,wifi-25-ev0,0
+25,wifi,5,38,1,2427.0,2447.0,wifi-25-ev1,1
+25,wifi,5,39,1,2427.0,2447.0,wifi-25-ev1,1
+25,wifi,5,40,1,2427.0,2447.0,wifi-25-ev1,1
+25,wifi,5,41,1,2427.0,2447.0,wifi-25-ev1,1
+25,wifi,5,42,1,2427.0,2447.0,wifi-25-ev1,1
+26,ble,25,7,1,2455.0,2457.0,ble-26-ev0,0
+26,ble,25,8,1,2455.0,2457.0,ble-26-ev0,0
+26,ble,25,9,1,2455.0,2457.0,ble-26-ev0,0
+26,ble,25,10,1,2455.0,2457.0,ble-26-ev0,0
+26,ble,25,11,1,2455.0,2457.0,ble-26-ev0,0
+26,ble,25,12,1,2455.0,2457.0,ble-26-ev0,0
+26,ble,30,23,1,2465.0,2467.0,ble-26-ev1,1
+26,ble,30,24,1,2465.0,2467.0,ble-26-ev1,1
+26,ble,30,25,1,2465.0,2467.0,ble-26-ev1,1
+26,ble,30,26,1,2465.0,2467.0,ble-26-ev1,1
+26,ble,30,27,1,2465.0,2467.0,ble-26-ev1,1
+26,ble,30,28,1,2465.0,2467.0,ble-26-ev1,1
+26,ble,35,39,1,2475.0,2477.0,ble-26-ev2,2
+26,ble,35,40,1,2475.0,2477.0,ble-26-ev2,2
+26,ble,35,41,1,2475.0,2477.0,ble-26-ev2,2
+26,ble,35,42,1,2475.0,2477.0,ble-26-ev2,2
+26,ble,35,43,1,2475.0,2477.0,ble-26-ev2,2
+26,ble,35,44,1,2475.0,2477.0,ble-26-ev2,2
+26,ble,3,55,1,2409.0,2411.0,ble-26-ev3,3
+26,ble,3,56,1,2409.0,2411.0,ble-26-ev3,3
+26,ble,3,57,1,2409.0,2411.0,ble-26-ev3,3
+26,ble,3,58,1,2409.0,2411.0,ble-26-ev3,3
+26,ble,3,59,1,2409.0,2411.0,ble-26-ev3,3
+26,ble,3,60,1,2409.0,2411.0,ble-26-ev3,3
+27,ble,27,59,1,2459.0,2461.0,ble-27-ev0,0
+27,ble,27,60,1,2459.0,2461.0,ble-27-ev0,0
+27,ble,27,61,1,2459.0,2461.0,ble-27-ev0,0
+27,ble,27,62,1,2459.0,2461.0,ble-27-ev0,0
+27,ble,27,63,1,2459.0,2461.0,ble-27-ev0,0
+29,ble,32,0,1,2469.0,2471.0,ble-29-ev0,0
+29,ble,32,1,1,2469.0,2471.0,ble-29-ev0,0
+29,ble,32,2,1,2469.0,2471.0,ble-29-ev0,0
+29,ble,32,3,1,2469.0,2471.0,ble-29-ev0,0
+29,ble,32,4,1,2469.0,2471.0,ble-29-ev0,0
+34,ble,32,14,1,2469.0,2471.0,ble-34-ev0,0
+34,ble,32,15,1,2469.0,2471.0,ble-34-ev0,0
+34,ble,32,16,1,2469.0,2471.0,ble-34-ev0,0
+34,ble,32,17,1,2469.0,2471.0,ble-34-ev0,0
+34,ble,32,18,1,2469.0,2471.0,ble-34-ev0,0
+34,ble,32,19,1,2469.0,2471.0,ble-34-ev0,0
+34,ble,4,22,1,2411.0,2413.0,ble-34-ev1,1
+34,ble,4,23,1,2411.0,2413.0,ble-34-ev1,1
+34,ble,4,24,1,2411.0,2413.0,ble-34-ev1,1
+34,ble,4,25,1,2411.0,2413.0,ble-34-ev1,1
+34,ble,4,26,1,2411.0,2413.0,ble-34-ev1,1
+34,ble,4,27,1,2411.0,2413.0,ble-34-ev1,1
+34,ble,13,30,1,2431.0,2433.0,ble-34-ev2,2
+34,ble,13,31,1,2431.0,2433.0,ble-34-ev2,2
+34,ble,13,32,1,2431.0,2433.0,ble-34-ev2,2
+34,ble,13,33,1,2431.0,2433.0,ble-34-ev2,2
+34,ble,13,34,1,2431.0,2433.0,ble-34-ev2,2
+34,ble,13,35,1,2431.0,2433.0,ble-34-ev2,2
+35,ble,2,20,1,2407.0,2409.0,ble-35-ev0,0
+35,ble,2,21,1,2407.0,2409.0,ble-35-ev0,0
+35,ble,2,22,1,2407.0,2409.0,ble-35-ev0,0
+35,ble,2,23,1,2407.0,2409.0,ble-35-ev0,0
+35,ble,2,24,1,2407.0,2409.0,ble-35-ev0,0
+38,ble,12,0,1,2429.0,2431.0,ble-38-ev0,0
+38,ble,12,1,1,2429.0,2431.0,ble-38-ev0,0
+38,ble,12,2,1,2429.0,2431.0,ble-38-ev0,0
+38,ble,12,3,1,2429.0,2431.0,ble-38-ev0,0
+38,ble,12,4,1,2429.0,2431.0,ble-38-ev0,0
+38,ble,12,5,1,2429.0,2431.0,ble-38-ev0,0
+40,wifi,5,43,1,2427.0,2447.0,wifi-40-ev0,0
+40,wifi,5,44,1,2427.0,2447.0,wifi-40-ev0,0
+40,wifi,5,45,1,2427.0,2447.0,wifi-40-ev0,0
+40,wifi,5,46,1,2427.0,2447.0,wifi-40-ev0,0
+40,wifi,5,47,1,2427.0,2447.0,wifi-40-ev0,0
+40,wifi,5,48,1,2427.0,2447.0,wifi-40-ev0,0
+40,wifi,5,49,1,2427.0,2447.0,wifi-40-ev0,0
+40,wifi,5,50,1,2427.0,2447.0,wifi-40-ev0,0
+40,wifi,5,11,1,2427.0,2447.0,wifi-40-ev1,1
+40,wifi,5,12,1,2427.0,2447.0,wifi-40-ev1,1
+40,wifi,5,13,1,2427.0,2447.0,wifi-40-ev1,1
+40,wifi,5,14,1,2427.0,2447.0,wifi-40-ev1,1
+40,wifi,5,15,1,2427.0,2447.0,wifi-40-ev1,1
+40,wifi,5,16,1,2427.0,2447.0,wifi-40-ev1,1
+40,wifi,5,17,1,2427.0,2447.0,wifi-40-ev1,1
+40,wifi,5,18,1,2427.0,2447.0,wifi-40-ev1,1
+41,ble,30,0,1,2465.0,2467.0,ble-41-ev0,0
+41,ble,30,1,1,2465.0,2467.0,ble-41-ev0,0
+41,ble,30,2,1,2465.0,2467.0,ble-41-ev0,0
+41,ble,30,3,1,2465.0,2467.0,ble-41-ev0,0
+41,ble,30,4,1,2465.0,2467.0,ble-41-ev0,0
+41,ble,35,32,1,2475.0,2477.0,ble-41-ev1,1
+41,ble,35,33,1,2475.0,2477.0,ble-41-ev1,1
+41,ble,35,34,1,2475.0,2477.0,ble-41-ev1,1
+41,ble,35,35,1,2475.0,2477.0,ble-41-ev1,1
+41,ble,35,36,1,2475.0,2477.0,ble-41-ev1,1
+43,ble,35,59,1,2475.0,2477.0,ble-43-ev0,0
+43,ble,35,60,1,2475.0,2477.0,ble-43-ev0,0
+43,ble,35,61,1,2475.0,2477.0,ble-43-ev0,0
+43,ble,35,62,1,2475.0,2477.0,ble-43-ev0,0
+43,ble,35,63,1,2475.0,2477.0,ble-43-ev0,0
+44,ble,35,14,1,2475.0,2477.0,ble-44-ev0,0
+44,ble,35,15,1,2475.0,2477.0,ble-44-ev0,0
+44,ble,35,16,1,2475.0,2477.0,ble-44-ev0,0
+44,ble,35,17,1,2475.0,2477.0,ble-44-ev0,0
+44,ble,35,18,1,2475.0,2477.0,ble-44-ev0,0
+44,ble,7,22,1,2417.0,2419.0,ble-44-ev1,1
+44,ble,7,23,1,2417.0,2419.0,ble-44-ev1,1
+44,ble,7,24,1,2417.0,2419.0,ble-44-ev1,1
+44,ble,7,25,1,2417.0,2419.0,ble-44-ev1,1
+44,ble,7,26,1,2417.0,2419.0,ble-44-ev1,1
+44,ble,16,30,1,2437.0,2439.0,ble-44-ev2,2
+44,ble,16,31,1,2437.0,2439.0,ble-44-ev2,2
+44,ble,16,32,1,2437.0,2439.0,ble-44-ev2,2
+44,ble,16,33,1,2437.0,2439.0,ble-44-ev2,2
+44,ble,16,34,1,2437.0,2439.0,ble-44-ev2,2
+45,ble,14,0,1,2433.0,2435.0,ble-45-ev0,0
+45,ble,14,1,1,2433.0,2435.0,ble-45-ev0,0
+45,ble,14,2,1,2433.0,2435.0,ble-45-ev0,0
+45,ble,14,3,1,2433.0,2435.0,ble-45-ev0,0
+46,wifi,5,23,1,2427.0,2447.0,wifi-46-ev0,0
+46,wifi,5,24,1,2427.0,2447.0,wifi-46-ev0,0
+46,wifi,5,25,1,2427.0,2447.0,wifi-46-ev0,0
+46,wifi,5,26,1,2427.0,2447.0,wifi-46-ev0,0
+46,wifi,5,27,1,2427.0,2447.0,wifi-46-ev0,0
+46,wifi,5,28,1,2427.0,2447.0,wifi-46-ev0,0
+46,wifi,5,55,1,2427.0,2447.0,wifi-46-ev1,1
+46,wifi,5,56,1,2427.0,2447.0,wifi-46-ev1,1
+46,wifi,5,57,1,2427.0,2447.0,wifi-46-ev1,1
+46,wifi,5,58,1,2427.0,2447.0,wifi-46-ev1,1
+46,wifi,5,59,1,2427.0,2447.0,wifi-46-ev1,1
+46,wifi,5,60,1,2427.0,2447.0,wifi-46-ev1,1
+47,wifi,0,2,1,2402.0,2422.0,wifi-47-ev0,0
+47,wifi,0,3,1,2402.0,2422.0,wifi-47-ev0,0
+47,wifi,0,4,1,2402.0,2422.0,wifi-47-ev0,0
+47,wifi,0,5,1,2402.0,2422.0,wifi-47-ev0,0
+47,wifi,0,6,1,2402.0,2422.0,wifi-47-ev0,0
+47,wifi,0,7,1,2402.0,2422.0,wifi-47-ev0,0
+47,wifi,0,8,1,2402.0,2422.0,wifi-47-ev0,0
+47,wifi,0,34,1,2402.0,2422.0,wifi-47-ev1,1
+47,wifi,0,35,1,2402.0,2422.0,wifi-47-ev1,1
+47,wifi,0,36,1,2402.0,2422.0,wifi-47-ev1,1
+47,wifi,0,37,1,2402.0,2422.0,wifi-47-ev1,1
+47,wifi,0,38,1,2402.0,2422.0,wifi-47-ev1,1
+47,wifi,0,39,1,2402.0,2422.0,wifi-47-ev1,1
+47,wifi,0,40,1,2402.0,2422.0,wifi-47-ev1,1
+48,ble,10,0,1,2423.0,2425.0,ble-48-ev0,0
+48,ble,10,1,1,2423.0,2425.0,ble-48-ev0,0
+48,ble,10,2,1,2423.0,2425.0,ble-48-ev0,0
+48,ble,10,3,1,2423.0,2425.0,ble-48-ev0,0
+48,ble,10,4,1,2423.0,2425.0,ble-48-ev0,0
+48,ble,19,32,1,2443.0,2445.0,ble-48-ev1,1
+48,ble,19,33,1,2443.0,2445.0,ble-48-ev1,1
+48,ble,19,34,1,2443.0,2445.0,ble-48-ev1,1
+48,ble,19,35,1,2443.0,2445.0,ble-48-ev1,1
+48,ble,19,36,1,2443.0,2445.0,ble-48-ev1,1
+-1,ble_adv_idle,2402,0,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,1,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,2,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,3,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,4,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,5,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,6,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,7,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,8,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,9,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,10,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,11,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,12,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,13,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,14,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,15,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,16,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,17,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,18,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,19,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,20,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,21,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,22,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,23,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,24,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,25,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,26,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,27,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,28,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,29,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,30,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,31,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,32,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,33,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,34,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,35,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,36,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,37,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,38,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,39,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,40,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,41,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,42,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,43,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,44,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,45,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,46,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,47,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,48,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,49,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,50,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,51,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,52,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,53,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,54,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,55,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,56,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,57,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,58,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,59,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,60,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,61,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,62,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2402,63,1,2401.0,2403.0,BLE adv idle 2402 MHz,0
+-1,ble_adv_idle,2426,0,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,1,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,2,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,3,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,4,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,5,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,6,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,7,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,8,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,9,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,10,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,11,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,12,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,13,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,14,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,15,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,16,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,17,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,18,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,19,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,20,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,21,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,22,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,23,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,24,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,25,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,26,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,27,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,28,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,29,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,30,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,31,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,32,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,33,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,34,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,35,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,36,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,37,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,38,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,39,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,40,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,41,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,42,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,43,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,44,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,45,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,46,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,47,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,48,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,49,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,50,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,51,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,52,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,53,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,54,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,55,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,56,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,57,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,58,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,59,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,60,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,61,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,62,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2426,63,1,2425.0,2427.0,BLE adv idle 2426 MHz,1
+-1,ble_adv_idle,2480,0,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,1,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,2,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,3,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,4,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,5,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,6,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,7,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,8,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,9,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,10,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,11,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,12,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,13,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,14,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,15,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,16,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,17,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,18,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,19,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,20,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,21,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,22,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,23,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,24,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,25,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,26,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,27,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,28,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,29,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,30,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,31,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,32,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,33,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,34,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,35,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,36,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,37,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,38,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,39,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,40,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,41,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,42,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,43,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,44,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,45,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,46,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,47,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,48,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,49,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,50,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,51,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,52,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,53,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,54,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,55,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,56,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,57,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,58,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,59,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,60,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,61,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,62,1,2479.0,2481.0,BLE adv idle 2480 MHz,2
+-1,ble_adv_idle,2480,63,1,2479.0,2481.0,BLE adv idle 2480 MHz,2

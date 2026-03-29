@@ -1,0 +1,128 @@
+{
+  "_comment": "Isolated joint WiFi/BLE demo config for the mixed-state SDP/GA experiment.",
+  "macrocycle_slots": 64,
+  "wifi_channels": [
+    0,
+    5,
+    10
+  ],
+  "ble_channels": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36
+  ],
+  "ga": {
+    "population_size": 40,
+    "generations": 30,
+    "mutation_rate": 0.15,
+    "crossover_rate": 0.8,
+    "elite_count": 4,
+    "seed": 7
+  },
+  "hga": {
+    "population_size": 48,
+    "generations": 36,
+    "coordination_rounds": 2,
+    "seed": 11,
+    "residual_seed_budget": 4,
+    "residual_swap_budget": 6
+  },
+  "tasks": [
+    {
+      "task_id": 0,
+      "radio": "wifi",
+      "payload_bytes": 1024,
+      "release_slot": 0,
+      "deadline_slot": 16,
+      "preferred_channel": 0,
+      "wifi_tx_slots": 2,
+      "max_offsets": 2
+    },
+    {
+      "task_id": 1,
+      "radio": "wifi",
+      "payload_bytes": 1500,
+      "release_slot": 4,
+      "deadline_slot": 24,
+      "preferred_channel": 5,
+      "wifi_tx_slots": 3,
+      "max_offsets": 2
+    },
+    {
+      "task_id": 2,
+      "radio": "ble",
+      "payload_bytes": 247,
+      "release_slot": 0,
+      "deadline_slot": 32,
+      "preferred_channel": 8,
+      "ble_ce_slots": 1,
+      "ble_ci_slots_options": [
+        8
+      ],
+      "ble_num_events": 3,
+      "ble_pattern_count": 3,
+      "max_offsets": 2
+    },
+    {
+      "task_id": 3,
+      "radio": "ble",
+      "payload_bytes": 247,
+      "release_slot": 8,
+      "deadline_slot": 40,
+      "preferred_channel": 20,
+      "ble_ce_slots": 1,
+      "ble_ci_slots_options": [
+        8
+      ],
+      "ble_num_events": 3,
+      "ble_pattern_count": 3,
+      "max_offsets": 2
+    }
+  ],
+  "solver": "sdp",
+  "objective": {
+    "mode": "lexicographic",
+    "primary": "payload",
+    "secondary": "fill",
+    "wifi_payload_floor_bytes": 0,
+    "payload_tie_tolerance": 0,
+    "fragmentation_penalty": 1.0,
+    "idle_area_penalty": 1.0,
+    "slot_span_penalty": 0.1,
+    "occupied_area_penalty": 0.0
+  }
+}
