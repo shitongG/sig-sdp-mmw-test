@@ -666,12 +666,12 @@ D_k,\,
 ```
 
 其中：
-- `r_k` 与 `D_k` 分别表示 release time 与 deadline；
-- `\rho_k \in \{\mathrm{WiFi}, \mathrm{BLE}\}` 表示业务类型；
-- `\pi_k` 表示介质相关的周期参数集合；
-- `\chi_k` 表示可选信道、初始偏好、office 位置等先验信息。
+- $r_k$ 与 $D_k$ 分别表示 release time 与 deadline；
+- $\rho_k \in \{\mathrm{WiFi}, \mathrm{BLE}\}$ 表示业务类型；
+- $\pi_k$ 表示介质相关的周期参数集合；
+- $\chi_k$ 表示可选信道、初始偏好、office 位置等先验信息。
 
-若 `\rho_k = \mathrm{WiFi}`，则 `\pi_k` 主要由 `wifi_tx_slots`、`wifi_period_slots`、`wifi_anchor_slot` 构成；若 `\rho_k = \mathrm{BLE}`，则 `\pi_k` 主要由 `ble_ce_slots`、`ble_ci_slots`、`ble_anchor_slot`、`ble_timing_mode` 构成。
+若 $\rho_k = \mathrm{WiFi}$，则 $\pi_k$ 主要由 `wifi_tx_slots`、`wifi_period_slots`、`wifi_anchor_slot` 构成；若 $\rho_k = \mathrm{BLE}$，则 $\pi_k$ 主要由 `ble_ce_slots`、`ble_ci_slots`、`ble_anchor_slot`、`ble_timing_mode` 构成。
 
 BLE-only 宏周期跳频求解器 [ble_macrocycle_hopping_sdp.py](/data/home/Jie_Wan/mycode/sig-sdp-mmw-test/ble_macrocycle_hopping_sdp.py) 的输入参数可记为：
 
@@ -1110,7 +1110,12 @@ x^\star = \arg\min F(x)
 第二阶段：
 
 ```math
-\min_{Y \succeq 0} \sum_{a \in \tilde{\mathcal{A}}} f_a y_a + \sum_{a<b} \Omega_{ab} Y_{ab}
+\min_{Y \succeq 0}
+\left(
+\sum_{a \in \tilde{\mathcal{A}}} f_a y_a
+\;+\;
+\sum_{\substack{a,b \in \tilde{\mathcal{A}} \\ a < b}} \Omega_{ab} Y_{ab}
+\right)
 ```
 
 满足：
@@ -1249,7 +1254,7 @@ F(x) = \mu_1 \mathrm{Frag}(x) + \mu_2 \mathrm{Idle}(x) + \mu_3 \mathrm{Span}(x)
 再计算软代价：
 
 ```math
-C(x) = \sum_{i<j} \Omega_{x_i x_j}
+C(x) = \sum_{1 \le i < j \le K} \Omega_{x_i, x_j}
 ```
 
 若两个染色体 $x^{(1)}$ 与 $x^{(2)}$ 对比，则当前实现按以下顺序比较：
@@ -1601,9 +1606,9 @@ P_{\mathrm{wifi}}(x') \ge P_{\mathrm{wifi}}(x^{\mathrm{seed}})
 ```
 
 其中：
-- `x^{seed}` 是 HGA 的当前联合种子解
-- `x'` 是局部重排后的新候选
-- `P_wifi` 表示仅统计 WiFi 任务的已调度 payload
+- $x^{\mathrm{seed}}$ 是 HGA 的当前联合种子解
+- $x'$ 是局部重排后的新候选
+- $P_{\mathrm{wifi}}$ 表示仅统计 WiFi 任务的已调度 payload
 
 这一步保证 HGA 的联合改进不会通过“先掉 WiFi payload，再用 BLE 补回来”的方式作弊。
 
