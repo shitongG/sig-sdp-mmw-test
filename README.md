@@ -991,9 +991,8 @@ h_{k,m}(a) = H(c, \ell, m)
 对两个候选状态 $a$ 与 $b$，若存在任意一对资源块在时间和频率上都有正重叠，则定义它们硬冲突：
 
 ```math
-\exists B_a \in \mathcal{B}(a),\; \exists B_b \in \mathcal{B}(b)
-\text{ s.t. }
-|B_a \cap B_b| > 0
+\exists B_a \in \mathcal{B}(a),\; \exists B_b \in \mathcal{B}(b),
+\qquad |B_a \cap B_b| > 0
 ```
 
 代码里这一步由 `state_pair_is_feasible(...)` 和 `build_joint_forbidden_state_pairs(...)` 实现；只要发生 WiFi-WiFi、BLE-BLE 或 WiFi-BLE 的时频重叠，该状态对就被禁止共同出现。
@@ -1092,7 +1091,12 @@ F(x) = \mu_1 \mathrm{Frag}(x) + \mu_2 \mathrm{Idle}(x) + \mu_3 \mathrm{Span}(x)
 
 ```math
 x^\star = \arg\min F(x)
-\quad \text{s.t.} \quad P(x) \ge P^\star - \varepsilon
+```
+
+并满足：
+
+```math
+P(x) \ge P^\star - \varepsilon
 ```
 
 其中 $P^\star$ 是第一阶段“最大 payload”问题的最优值。
@@ -1230,9 +1234,9 @@ x = (x_1, x_2, \ldots, x_K)
 若染色体中任意两基因对应的状态对落在 $\mathcal{F}$ 中，则该染色体不可行。
 
 ```math
-\exists i < j \text{ such that } (x_i, x_j) \in \mathcal{F}
+\exists i < j,\; (x_i, x_j) \in \mathcal{F}
 \;\Rightarrow\;
-\text{chromosome infeasible}
+\mathrm{infeasible}
 ```
 
 #### 11.5.3 适应度函数
@@ -1359,7 +1363,9 @@ HGA 会先按不同任务顺序构造多个 greedy 种子，例如：
 然后把它们重新送回同一个联合 GA 搜索器：
 
 ```math
-\text{GA population} \leftarrow \mathcal{X}_{\mathrm{seed}} \cup \mathcal{X}_{\mathrm{local}} \cup \mathcal{X}_{\mathrm{rand}}
+\mathcal{P}_{\mathrm{GA}}
+\leftarrow
+\mathcal{X}_{\mathrm{seed}} \cup \mathcal{X}_{\mathrm{local}} \cup \mathcal{X}_{\mathrm{rand}}
 ```
 
 因此 HGA 的“启发式能力”本质上是：
@@ -1412,13 +1418,7 @@ P_{\mathrm{wifi}}^{\min} = \sum_{a \in \mathcal{W}_{\mathrm{base}}} p_a
 \sum_{a \in \mathcal{A}_{\mathrm{wifi}}} p_a \hat{x}_a \ge P_{\mathrm{wifi}}^{\min}
 ```
 
-并且在词典序比较中仍以：
-
-```math
-(\text{wifi payload}, \text{total payload}, -\text{fill penalty}, \text{selected pairs})
-```
-
-排序。也就是说，repair/packing 的目标不是盲目多塞 BLE，而是在 **WiFi 不下降** 的前提下，把剩余谱里的 BLE 再尽量塞满。
+并且在词典序比较中仍以 “WiFi payload、total payload、负的 fill penalty、selected pairs” 的顺序排序。也就是说，repair/packing 的目标不是盲目多塞 BLE，而是在 **WiFi 不下降** 的前提下，把剩余谱里的 BLE 再尽量塞满。
 
 #### 11.6.5 Aggressive packing 细化
 
